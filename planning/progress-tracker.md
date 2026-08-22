@@ -146,11 +146,11 @@ Two defaults were implicit and are now stated: the departed toggle is off, and d
 
 ---
 
-## Current Working Session — Session 3 · P1a, part 1
+## Session 3 — P1a, part 1 · complete
 
 **Module:** P1a — sync path and the domain's resolution half
 **Task Ref:** `delivery.md` §4 P1a
-**Status:** 🟡 In progress — 5 of 10 files written, all typechecking and lint-clean. Paused after `normalize.ts` to amend the specification
+**Status:** ✅ Superseded by Session 4, which completed the phase. 5 of 11 files written here — the file count in this entry was short by one, `lib/ingest.ts`, added by `delivery.md` 1.3 and missing from the Next Step below
 **Date:** 2026-08-22
 **Documents:** `build.md` → 1.3 · `delivery.md` → 1.3
 
@@ -191,11 +191,75 @@ Open item 2 in `build.md` (the four illustrative count strings) closes in the sa
 
 ---
 
+## Current Working Session — Session 4 · P1a complete
+
+**Module:** P1a — sync path and the domain's resolution half
+**Task Ref:** `delivery.md` §4 P1a
+**Status:** ✅ **Complete.** All 11 files written, typechecked and lint-clean. The walk ran, the gate closed, both documents amended
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.3 → **1.5** · `delivery.md` 1.3 → **1.5**
+
+### What Was Done
+
+Six files written in dependency order — `resolve-edges.ts`, `break-cycles.ts`, `ingest.ts`, `snapshot-writer.ts`, `scripts/sync.ts`, `reconcile.ts` — plus the `pnpm sync` script and stale-comment corrections in `normalize.ts` and `ledger.ts` left by the 1.3 amendment.
+
+**`pnpm sync` output, and P1a's definition of done:**
+
+| Assertion | Result |
+|---|---|
+| Complete `OrgSnapshot` | 191 people · 191 edges · 42 issues · 0 external · 0 unresolved |
+| `terminalCursorReached` | `true` |
+| `apiCallCount === 2 + ceil(N/100)` | **4** over 2 pages |
+| No key matching `/email/i` | Clean across `data/` and `fixtures/` |
+| Second run produces no `git diff` | Hash unchanged, both writes skipped |
+| **§G.2 count identity** | `191 === 191 − 0` — **holds exactly** |
+
+**The gate that blocked P2a is closed.** The three candidate subtrahends were measured against the complete walk — 25 archived, 45 offboarded by lifecycle stage, 19 inactive by user status — and the residual is **zero** without subtracting any of them. The list endpoint excludes deleted records only, exactly as documented. `Provenance` gained no count field, and the §D.2 pre-pass narrowed to `id` and `status`, closing `build.md` Open items 1, 2 and 3 in one pass.
+
+**One limitation recorded rather than glossed:** `deletedCount` was 0, so the identity's *subtraction term* is unexercised by real data — `191 === 191 − 0` is also what a formula with no subtraction predicts. Only the fixture's `emp-019` exercises it.
+
+### Specification Defects Found and Closed
+
+Every one was found by writing the code the clause governs, which is the argument for writing them in this order. Numbered as raised.
+
+| # | Defect | Resolution | Landed in |
+|---|---|---|---|
+| G-1 | `resolveEdges(people)` cannot implement the §D.6 ladder — `Person` carries no manager fields | Takes `EmploymentRecord[]`; `normalize` and `resolveEdges` are two deliberate passes over one input | `delivery.md` §2 |
+| G-2 | `ExternalManager.displayName` order-dependent, so `contentHash` was too | Raw string from the lowest employment id in the merged group; modal form rejected on the record | `build.md` §D.6 r2 |
+| G-3 | §G.3 sorted four collections; `OrgSnapshot` has five | `unresolvedManagers` by id, plus a second fixture record so the sort is testable | `build.md` §G.3, `delivery.md` §5 |
+| G-4 | `issues` keyed `(code, employmentId)` is **not unique** — two pre-pass failures share it, and a stable sort passes arrival order into the hash | Third term `safeDetail`, plus a second fixture failure | `build.md` §G.3, `delivery.md` §5 |
+| G-5 | §H.3 illustrated `external:sofia-reyes`; §D.6's slug rule has no hyphenation step | Example corrected to the rule, not the rule to the example | `build.md` §H.3 |
+| G-6 | One `CYCLE_BROKEN` per cycle or per member was undetermined | Per cycle, on the cut member — the locked `suggestedAction` is only true of that one | `build.md` §D.6 r3, §F.1 |
+| G-7 | `CYCLE_BROKEN` was the only record-scoped finding with a null `displayName` | `breakCycles` takes a name lookup; the ledger stands alone as a handover artifact | `build.md` §D.6 r3, `delivery.md` §2 |
+| G-8 | `ingest → { records, issues }` cannot supply §G.2's terms for a quarantined record | Returns `counts` from stage one | `build.md` §D.2, `delivery.md` §2 |
+| G-9 | The positional detail cannot be `page 2, record 17` — `walkBulk` flattens pages | Flat walk index, which is also unique, which G-4 now depends on | `build.md` §D.2 |
+| G-10 | §E.5 documents a 300/min ceiling; headers report **1000** | Recorded; no code depends on the difference at 4 requests | `build.md` §E.5 |
+| G-11 | §G.2 checks 1 and 3 and the conservation law have no code in the closed set of six | They throw — none can fail on data, so a violation is a pipeline defect and refusing to write is correct | `build.md` §G.2 |
+
+### Mid-Session Decisions
+
+- **Vitest deferred to P3, deliberately.** Every test file and `fixtures/edge-cases.json` are P3 deliverables and the fixture is the *input* to every domain test; installing the runner now yields a `pnpm test` that is green because it is empty, which reads as a passing suite. The cost is real and is recorded here rather than hidden: `resolve-edges.ts` and `break-cycles.ts` get almost no verification from the walk, because the real data contains **zero** rung-3 records and **zero** cycles. Their first genuine verification is P3.
+- **Verified by throwaway probe instead, three times.** Each probe was written to the scratchpad, run, and deleted — none is on the §2 manifest. The rung distribution over the 100 captured records reproduced `delivery.md` §1.1's independently-derived figures exactly (79 + 4 = 83 rung 1-or-2, 17 rung 4, 0 rung 3, 4 danglers collapsing to 2 placeholders). The cycle cut was checked over self-loop, 2-cycle, 3-cycle, a tail feeding a cycle, two independent cycles, and a shared-manager graph that must *not* trip it — then 200 shuffles of one case produced **1 distinct outcome**.
+- **`breakCycles` was made non-mutating after the fact.** The first draft rewrote cut edges in place, which would have silently altered a caller's `resolveEdges` result. It now records the cut members and rebuilds, passing uncut edges through by reference.
+- **The real dataset exercises one of six §F.1 codes and no more.** `ROOT_NO_MANAGER` fires 42 times; `RECORD_INVALID`, `COUNT_MISMATCH`, `MGR_EXTERNAL`, `MGR_DANGLING` and `CYCLE_BROKEN` have **zero** real instances. H0 predicted this for rung 3 and correctly read its 4 off-page references as sampling artifacts — the full walk confirms 0 dangling. This is the strongest argument yet for F8's source selector: five sixths of the ledger is unobservable on the deployed system without it.
+
+### Next Step
+
+**P2a** (`delivery.md` §4): `build-forest.ts` and `filter.ts` — the assembly half, the only two domain modules that run per request. Its blocking gate is closed: the §G.2 identity is settled and `reconcile.ts` encodes it.
+
+Two obligations now inherited by later phases, both recorded so they are not rediscovered:
+
+- **P3 carries more than its manifest says.** `fixtures/edge-cases.json` needs the two records added to `delivery.md` §5 in this session — a second distinct dangling manager id, and a second pre-pass failure — without which the G-3 and G-4 determinism fixes are asserted by collections of length one that cannot be misordered.
+- **`data/` is untracked and must be committed.** `pnpm sync` created it this session; checklist item 2's scan now covers both `data/` and `fixtures/` and returns clean.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
-| 2026-08-22 | P1a part 1 — sync path + domain resolution (`delivery.md` §4) | 🟡 In progress. 5 of 10 files written, typechecked and lint-clean: `schemas.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`. Schemas verified against all three captured fixtures — 100/100 records parse both stages, 15 projected keys, `country` reduced to two leaves, zero `/email/i` keys surviving. `zod@4.4.3` and `tsx@4.23.12` added. |
+| 2026-08-22 | **P1a complete — sync path + domain resolution** (`delivery.md` §4) | ✅ All 11 files. `pnpm sync` writes 191 people / 191 edges / 42 issues at 4 API calls over 2 pages; `terminalCursorReached` and `countReconciled` both true; re-run is a no-op. **§G.2 identity settled exact** (191 = 191 − 0), closing `build.md` Open items 1–3 and P2a's gate. Eleven specification defects found and closed (G-1…G-11), `build.md` → 1.5, `delivery.md` → 1.5. Vitest deferred to P3 with the verification gap stated. |
+| 2026-08-22 | P1a part 1 — sync path + domain resolution (`delivery.md` §4) | 🟡 Superseded. 5 of 10 files written, typechecked and lint-clean: `schemas.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`. Schemas verified against all three captured fixtures — 100/100 records parse both stages, 15 projected keys, `country` reduced to two leaves, zero `/email/i` keys surviving. `zod@4.4.3` and `tsx@4.23.12` added. |
 | 2026-08-22 | Specification amended for the sync/render split | ✅ `build.md` → 1.3, `delivery.md` → 1.3. §G.1's Domain row placed graph resolution at render while §G.3 sorted `edges` and `issues` before writing — irreconcilable. Resolution moved to sync, because `countReconciled` and `contentHash` are fields of the snapshot and cannot be recorded by a check that ran after it existed. Consequences propagated: the system diagram gains a second domain box and corrects 3 requests to 4; §H.2's tree marks which half each module runs in; P1a absorbs five domain modules and P2a keeps two; four `delivery.md` signatures corrected against what `build.md` determines. New: the generated `fixtures/edge-cases.snapshot.json` with the raw fixture retained as the test input, `scripts/bake-fixture.ts`, and `pnpm bake:fixture` running under `test` so a stale bake fails CI. `contentHash` now excludes `capturedAt`, without which the no-`git diff` SLO was false. Third documentation defect fixed: `build.md` had promised a revision history since 1.1 and still had none, and the deferred Stage B strings were recorded in no document — both now under **Open against this document**. |
 | 2026-08-22 | H0 — Contract spike (`delivery.md` §1) | ✅ Complete. All 4 gates pass. Email-inference cut stays shut (0%). Count reconciliation deferred to H1 by design (single page < company size). `fixtures/captured/{identity,employments-list,employments-bulk}.json` written, redacted, secret-scan clean. One doc-vs-reality finding recorded: undocumented `manager_id` field on the bulk Employment object. |
 | 2026-08-22 | H0 findings validated independently | ✅ All figures re-derived from the committed fixtures. Three corrections to the session record: `manager_id` is a `user_id`-space field with one distinct value across the seed, so it would silently collapse the graph rather than being merely unused; `termination_date` is present on bulk (second contract correction, behaviourally redundant); the email-inference figure is 0 in the stronger sense that `manager_email` is never the sole route to a parent. |

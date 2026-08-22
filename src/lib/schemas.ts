@@ -112,8 +112,6 @@ const CountryProjection = z
 export const PrePassSchema = z.object({
   id: z.string().min(1),
   status: z.string(),
-  user_status: nullableString,
-  employment_lifecycle_stage: nullableString,
 });
 
 /** A record that survived the pre-pass. Counted and classifiable, not yet valid. */

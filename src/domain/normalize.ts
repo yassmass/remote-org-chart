@@ -9,7 +9,7 @@
  *
  * Everything here is a total function over already-validated input. Records that
  * could not be parsed never arrive: the two-stage parse of build.md §D.2 runs in
- * `scripts/sync.ts`, at sync time, where the Zod schemas live and where a
+ * `lib/ingest.ts`, at sync time, where the Zod schemas live and where a
  * quarantined record can still be counted. That placement is why `normalize`
  * cannot fail — every record it receives has already satisfied the projection.
  *

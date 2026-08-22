@@ -154,8 +154,7 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
  *
  * The caller decides *that* a finding applies; this decides everything about
  * what it says. Callers are `resolve-edges.ts` (the three `MGR_*` outcomes and
- * `ROOT_NO_MANAGER`), `break-cycles.ts` (`CYCLE_BROKEN`), the sync's two-stage
- * parse (`RECORD_INVALID`), and `reconcile.ts` (`COUNT_MISMATCH`).
+ * `ROOT_NO_MANAGER`), `break-cycles.ts` (`CYCLE_BROKEN`), `lib/ingest.ts` (`RECORD_INVALID`), and `reconcile.ts` (`COUNT_MISMATCH`).
  *
  * Not sorted here. Canonical ordering by `(code, employmentId)` happens once,
  * in `snapshot-writer.ts`, immediately before hashing — because ordering is a
