@@ -1,58 +1,227 @@
 @import "tailwindcss";
 
+/*
+ * Remote's production page serves Inter as a variable font split by Unicode
+ * range. Keeping the same partitions avoids downloading scripts a snapshot
+ * does not use while preserving Remote's international-name coverage.
+ * Source: remote.com/_next/static/chunks/3pt96zvsv9klg.css (2026-08-22).
+ */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-cyrillic-ext.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F,
+    U+FE2E-FE2F;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-cyrillic.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-greek-ext.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range: U+1F00-1FFF;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-greek.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1,
+    U+03A3-03FF;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-vietnamese.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1,
+    U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329,
+    U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin-ext.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+  size-adjust: 107.12%;
+}
+
+/* Remote's Bossa files are discrete faces, matching the live Next.js output. */
+@font-face {
+  font-family: "Bossa";
+  src: url("/fonts/bossa-light.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: "Bossa";
+  src: url("/fonts/bossa-regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Bossa";
+  src: url("/fonts/bossa-medium.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: "Bossa";
+  src: url("/fonts/bossa-bold.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Bossa";
+  src: url("/fonts/bossa-black.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 900;
+}
+
+@font-face {
+  font-family: "Bossa Fallback";
+  src: local("Arial");
+  ascent-override: 80.48%;
+  descent-override: 18.57%;
+  line-gap-override: 12.38%;
+  size-adjust: 121.15%;
+}
+
 :root {
   color-scheme: light;
 
-  /* Screenshot-sampled palette. */
+  /* Remote Zora neutral and red-theme tokens resolved on the target section. */
+  --font-bossa: "Bossa", "Bossa Fallback", system-ui, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-inter: "Inter", "Inter Fallback", system-ui, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
   --canvas: #eff0f0;
   --ink: #141415;
-  --selected: #4a1a22;
-  --accent: #983746;
-  --selected-ink: #f6f7f8;
+  --ink-secondary: #383a3d;
+  --ink-tertiary: #595b5f;
+  --selected: #511621;
+  --selected-hover: #742030;
+  --accent: #a52d44;
+  --action: #e03d5c;
+  --selected-ink: #ffffff;
+  --selected-ink-secondary: #f6f7f8;
   --surface: #ffffff;
-  --surface-recessed: #eff2f6;
+  --surface-recessed: #f6f7f8;
+  --surface-hover: #fef7f9;
   --divider: #b3b5b7;
-  --grid-line: #b2bcc8;
-  --badge-soft: #f3d8dd;
-  --success-surface: #f5fee9;
-  --success-row: #f3fde8;
-  --success-pill: #d9f7b3;
-  --success-ink: #436121;
-  --success-mark: #69a031;
-  --verified-mark: #66bc8c;
-  --portrait-accent: #cf4b5f;
+
+  /* Exact values embedded in the target section's 820px Lottie sources. */
+  --grid-line: #b0bcc9;
+  --badge-soft: #f8d8dd;
+  --success-surface: #f3fee7;
+  --success-row: #e3fbcc;
+  --success-pill: #d1f8ab;
+  --success-ink: #3a6212;
+  --success-mark: #58a30d;
+  --verified-mark: #40bf89;
+  --portrait-accent: #e03d5c;
+  --focus: #0564ff;
+  --alert: #b41818;
+  --warning-surface: #fff9eb;
+  --warning-border: #fec24b;
+  --warning-ink: #933a0d;
 
   /* Compatibility aliases for existing Tailwind scaffold classes. */
   --background: var(--canvas);
   --foreground: var(--ink);
 
-  /* Measured rhythm and shape. */
+  /* Remote Zora spacing, shape, and target-section component metrics. */
+  --space-0: 0px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-7: 28px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-14: 56px;
-  --row-height: 97px;
-  --compact-row-height: 44px;
-  --radius-panel: 12px;
-  --radius-card: 8px;
-  --radius-row: 8px;
-  --radius-pill: 999px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 80px;
+  --space-10: 96px;
+  --space-11: 112px;
+  --space-12: 128px;
+  --space-13: 144px;
+  --space-14: 160px;
+  --row-height: 81px;
+  --compact-row-height: 40px;
+  --action-height: 40px;
+  --icon-action-size: 40px;
+  --status-pill-height: 24px;
+  --radius-xs: 2px;
+  --radius-control: 4px;
+  --radius-panel: 10px;
+  --radius-card: calc(var(--detail-grid-size) * 12 / 820);
+  --radius-row: calc(var(--detail-grid-size) * 10 / 820);
+  --radius-pill: 40px;
   --rule: 1px;
 
-  /* R2 desktop frame, normalized from a 2x capture. */
-  --frame-width: 1385px;
-  --primary-width: 669px;
-  --editorial-gap: 154px;
-  --detail-grid-size: 562px;
-  --detail-card-width: 448px;
-  --detail-grid-cell: 57px;
-  --detail-grid-inset: 57px;
+  /* Live 1629px viewport geometry for the named Remote section. */
+  --frame-side-margin: 136px;
+  --frame-width: 1357px;
+  --primary-width: 628px;
+  --editorial-gap: 101px;
+  --detail-grid-size: 628px;
+  --detail-grid-cell: calc(var(--detail-grid-size) * 70 / 820);
+  --detail-grid-inset: calc(var(--detail-grid-size) * 65.5 / 820);
+  --detail-grid-visual-size: calc(var(--detail-grid-size) * 689 / 820);
+  --detail-card-width: calc(var(--detail-grid-size) * 550 / 820);
 }
 
 @theme inline {
@@ -74,7 +243,8 @@
   --color-success-ink: var(--success-ink);
   --color-success-mark: var(--success-mark);
   --color-verified-mark: var(--verified-mark);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bossa);
 }
 
 @layer base {
@@ -89,7 +259,7 @@
     min-height: 100%;
     background: var(--canvas);
     color: var(--ink);
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-inter);
     font-synthesis: none;
     text-rendering: optimizeLegibility;
   }
@@ -99,10 +269,10 @@
     margin: 0;
     background: var(--canvas);
     color: var(--ink);
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: var(--font-inter);
     font-size: 16px;
     font-weight: 400;
-    line-height: 1.375;
+    line-height: 1.5;
   }
 
   h1,
@@ -115,6 +285,16 @@
   dl,
   dd {
     margin: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-bossa);
+    font-weight: 400;
   }
 
   button,
@@ -144,8 +324,8 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
   }
 
   ::selection {
@@ -160,20 +340,18 @@
 
 @layer components {
   /*
-   * At the 1629px reference viewport this starts at x=130 and ends at
-   * x=1515. The 8px bias reproduces the reference's editorial alignment.
+   * Remote's live container is viewport width minus the breakpoint-specific
+   * side margins. At 1629px it starts at x=136 and is exactly 1357px wide.
    */
   .design-frame {
-    width: min(var(--frame-width), calc(100% - 48px));
+    width: calc(100% - 48px);
+    max-width: 1560px;
     margin-inline: auto;
-    padding-block: var(--space-14);
+    padding-block: var(--space-6);
   }
 
   .editorial-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 669fr) minmax(280px, 562fr);
-    column-gap: clamp(40px, 9.45vw, var(--editorial-gap));
-    align-items: start;
+    display: block;
   }
 
   .primary-region {
@@ -181,81 +359,105 @@
   }
 
   .detail-grid {
+    position: relative;
     width: 100%;
     max-width: var(--detail-grid-size);
     min-height: var(--detail-grid-size);
-    margin-block-start: 50px;
-    padding: 58px var(--detail-grid-inset);
+    margin-block-start: var(--space-6);
     background-color: var(--canvas);
+  }
+
+  .detail-grid::before {
+    position: absolute;
+    inset-block-start: var(--detail-grid-inset);
+    inset-inline-start: var(--detail-grid-inset);
+    width: var(--detail-grid-visual-size);
+    height: var(--detail-grid-visual-size);
     background-image:
       linear-gradient(var(--grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: var(--detail-grid-cell) var(--detail-grid-cell);
+    content: "";
+    pointer-events: none;
   }
 
   .detail-card-stack {
+    position: relative;
+    z-index: 1;
     display: grid;
-    width: 100%;
-    gap: 18px;
+    width: var(--detail-card-width);
+    max-width: 100%;
+    margin-inline: auto;
+    gap: var(--space-4);
   }
 
+  /* Typography primitives: one role per element, per design.md section 9.7. */
   .display-heading {
     max-width: var(--primary-width);
     color: var(--ink);
-    font-size: 40px;
+    font-family: var(--font-bossa);
+    font-size: 22px;
     font-weight: 400;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
+    letter-spacing: 0;
+    line-height: 1.5;
     text-wrap: balance;
   }
 
   .eyebrow {
     color: var(--accent);
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    line-height: 1.25;
+    font-family: var(--font-bossa);
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
     text-transform: uppercase;
   }
 
   .section-title {
-    font-size: 20px;
+    font-family: var(--font-bossa);
+    font-size: 16px;
     font-weight: 400;
-    line-height: 1.2;
+    line-height: 1.5;
   }
 
   .expanded-copy {
-    font-size: 18px;
+    font-family: var(--font-inter);
+    font-size: 16px;
     font-weight: 400;
-    line-height: 1.4445;
+    line-height: 1.5;
   }
 
   .body-copy {
+    font-family: var(--font-inter);
     font-size: 16px;
     font-weight: 400;
-    line-height: 1.375;
+    line-height: 1.5;
   }
 
   .body-strong {
+    font-family: var(--font-inter);
     font-size: 16px;
     font-weight: 600;
-    line-height: 1.375;
+    line-height: 1.5;
   }
 
   .field-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.035em;
-    line-height: 1.273;
+    font-family: var(--font-bossa);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
     text-transform: uppercase;
   }
 
   .micro-copy {
+    font-family: var(--font-inter);
     font-size: 12px;
     font-weight: 400;
-    line-height: 1.3334;
+    line-height: 1.5;
   }
 
+  /* Surface primitives and their fail-closed modifiers. */
   .surface-card {
     width: 100%;
     max-width: var(--detail-card-width);
@@ -267,13 +469,13 @@
     box-shadow: none;
   }
 
-  .success-card {
+  .surface-card.success-card {
     background: var(--success-surface);
   }
 
   .selected-panel {
-    min-height: 222px;
-    padding: var(--space-7);
+    min-height: 249px;
+    padding: var(--space-5);
     border: 0;
     border-radius: var(--radius-panel);
     background: var(--selected);
@@ -281,12 +483,13 @@
     box-shadow: none;
   }
 
-  .selected-panel__content {
-    padding-inline-start: 44px;
+  .selected-panel .selected-panel__content {
+    padding-inline-start: 48px;
   }
 
   .hairline-row {
     min-height: var(--row-height);
+    padding: var(--space-5);
     border: 0;
     border-bottom: var(--rule) solid var(--divider);
     background: transparent;
@@ -295,7 +498,11 @@
   }
 
   .recessed-row {
+    display: flex;
     min-height: var(--compact-row-height);
+    min-width: 0;
+    align-items: center;
+    padding-inline: var(--space-3);
     border: 0;
     border-radius: var(--radius-row);
     background: var(--surface-recessed);
@@ -305,11 +512,14 @@
 
   .field-control {
     min-height: var(--compact-row-height);
-    padding-inline: var(--space-4);
+    padding-inline: var(--space-3);
     border: 0;
-    border-radius: var(--radius-row);
+    border-radius: var(--radius-control);
     background: var(--surface-recessed);
     color: var(--ink);
+    font-family: var(--font-inter);
+    font-size: 16px;
+    line-height: 1.5;
     box-shadow: none;
   }
 
@@ -318,38 +528,45 @@
   }
 
   .field-control:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
   }
 
   .status-pill {
     display: inline-flex;
-    min-height: 28px;
+    min-height: var(--status-pill-height);
     align-items: center;
+    justify-content: center;
     padding-inline: var(--space-3);
     border: 0;
     border-radius: var(--radius-pill);
     background: var(--badge-soft);
     color: var(--accent);
+    font-family: var(--font-inter);
     font-size: 12px;
-    font-weight: 600;
-    line-height: 1.3334;
+    font-weight: 400;
+    line-height: 1.5;
   }
 
-  .status-pill--success {
+  .status-pill.status-pill--success {
     background: var(--success-pill);
     color: var(--success-ink);
   }
 
+  /* Action controls use semantic size tokens, never spacing-scale aliases. */
   .outline-action,
   .icon-action {
     display: inline-flex;
-    min-height: var(--space-10);
+    min-height: var(--action-height);
     align-items: center;
     justify-content: center;
     border: var(--rule) solid var(--accent);
     background: transparent;
     color: var(--accent);
+    font-family: var(--font-inter);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
     box-shadow: none;
   }
 
@@ -359,21 +576,26 @@
   }
 
   .icon-action {
-    width: var(--space-10);
+    width: var(--icon-action-size);
+    height: var(--icon-action-size);
+    min-height: var(--icon-action-size);
+    flex: 0 0 var(--icon-action-size);
     padding: 0;
     border-radius: 50%;
   }
 
-  .icon-action--inverse {
+  .icon-action.icon-action--inverse {
     border-color: var(--surface);
     background: var(--surface);
     color: var(--accent);
   }
 
   .synthetic-edge {
-    border: var(--rule) dashed var(--accent);
+    border: 0;
+    border-inline-start: var(--rule) dashed var(--accent);
   }
 
+  /* Review-table internals are intentionally scoped to the semantic table. */
   .review-table {
     width: 100%;
     overflow: hidden;
@@ -386,14 +608,15 @@
   }
 
   .review-table th {
-    min-height: var(--compact-row-height);
-    padding: var(--space-3) var(--space-4);
+    height: var(--compact-row-height);
+    padding: var(--space-2) var(--space-4);
     border-bottom: var(--rule) solid var(--grid-line);
     background: var(--surface-recessed);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.035em;
-    line-height: 1.273;
+    font-family: var(--font-bossa);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    line-height: 1.5;
     text-align: left;
     text-transform: uppercase;
   }
@@ -414,7 +637,7 @@
   }
 
   .review-table tr[aria-selected="true"] td,
-  .review-table .is-success td {
+  .review-table tr.is-success td {
     background: var(--success-row);
   }
 
@@ -423,23 +646,69 @@
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 768px) {
   .design-frame {
-    width: var(--frame-width);
-    margin-right: auto;
-    margin-left: calc((100vw - var(--frame-width)) / 2 + 8px);
+    width: calc(100% - 96px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .design-frame {
+    width: calc(100% - 128px);
+    padding-block: var(--space-7);
   }
 
   .editorial-layout {
-    grid-template-columns: var(--primary-width) var(--detail-grid-size);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 75px;
+    align-items: start;
+  }
+
+  .detail-grid {
+    margin-block-start: 0;
+  }
+
+  .display-heading {
+    font-size: 28px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .design-frame {
+    width: calc(100% - 272px);
+    max-width: none;
+    padding-block: var(--space-8);
+  }
+
+  .editorial-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--editorial-gap);
   }
+
+  .display-heading {
+    font-size: 36px;
+    line-height: 1.2;
+  }
+
+  .eyebrow {
+    font-size: 16px;
+  }
+
+  .section-title,
+  .expanded-copy {
+    font-size: 18px;
+  }
+
+  .field-label {
+    font-size: 14px;
+  }
+
 }
 
 @media (max-width: 767px) {
   .design-frame {
-    width: calc(100% - 32px);
-    padding-block: var(--space-8);
+    padding-block: var(--space-6);
   }
 
   .editorial-layout {
@@ -447,8 +716,8 @@
   }
 
   .display-heading {
-    font-size: 40px;
-    line-height: 1.1;
+    font-size: 22px;
+    line-height: 1.5;
   }
 
   .detail-grid {
@@ -459,8 +728,35 @@
     background-image: none;
   }
 
+  .detail-grid::before {
+    content: none;
+  }
+
+  .detail-card-stack {
+    width: 100%;
+  }
+
   .surface-card {
     max-width: none;
+  }
+}
+
+@media (min-width: 1920px) {
+  .design-frame {
+    width: calc(100% - 360px);
+    max-width: 1560px;
+  }
+
+  .editorial-layout {
+    column-gap: 131px;
+  }
+
+  .display-heading {
+    font-size: 46px;
+  }
+
+  .section-title {
+    font-size: 20px;
   }
 }
 
