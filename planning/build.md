@@ -1,6 +1,7 @@
 # Org Chart — Build Specification
 
-**System:** Organizational chart for Acme Sandbox Corp
+**Version:** 1.1 · amended 2026-08-22 after the H0 contract spike. Revision history at the foot of this document.
+**System:** Organizational chart for the company the API token resolves to. In the issued sandbox that is **CatarinaFDE Demo2** (`5ca666ff-…`, 191 employments), not the "Acme Sandbox Corp" the engagement brief describes — see §D.5.
 **Data source:** Remote Customer API (sandbox) · `gateway.remote-sandbox.com/v1`
 **Budget:** 8 hours of focused work
 **Document status:** Authoritative. This is the single specification for what is built, how it behaves, and what it guarantees.
@@ -68,7 +69,7 @@ An engineer opening the deployed URL with no context, no credentials, and no set
 | R5 | Clone the repo and run it with no `.env` | `pnpm i && pnpm dev` renders the committed snapshot |
 | R6 | Exercise the edge-case handling | The review bar's source selector switches the deployed app to the edge-case fixture |
 
-### A.2 Acme People Operator
+### A.2 The People Operator
 
 Owns the workforce data, not the integration. Every feature traces to one of these.
 
@@ -229,7 +230,7 @@ type DataIssue = {
   employmentId: string | null;
   displayName: string | null;
   safeDetail: string;          // no email, no token, no raw Remote payload
-  suggestedOwner: 'Acme People Ops' | 'Integration owner';
+  suggestedOwner: 'People Ops' | 'Integration owner';
   suggestedAction: string;     // the fix, not the fault — templated per code in ledger.ts
 };
 
@@ -274,12 +275,14 @@ type Forest = {
 
 | Source | Selector value | Header copy | Role |
 |---|---|---|---|
-| **Committed snapshot** | `?source=snapshot` (default) | `Acme Sandbox Corp · Data captured 21 Aug, 2:14 PM · yesterday` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
-| **Edge-case fixture** | `?source=fixture` | `Demo data — synthetic fixture, not Acme's organization` | The zero-credential run path, every unit test, and the demonstration surface for §F |
+| **Committed snapshot** | `?source=snapshot` (default) | `CatarinaFDE Demo2 · Data captured 22 Aug, 3:13 PM · today` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
+| **Edge-case fixture** | `?source=fixture` | `Demo data — synthetic fixture, not real company data` | The zero-credential run path, every unit test, and the demonstration surface for §F |
 
-The fixture is **selected, never fallen back to**. Synthetic records must never be served as though they were Acme's organization — the one case where usability and integrity genuinely conflict, and integrity wins. If `data/snapshot.json` is absent or unparseable, the system renders the empty state of §F.2 naming the cause, not the fixture.
+**The company name is rendered from `snapshot.company.name`, never from a constant.** H0 established that the issued sandbox resolves to *CatarinaFDE Demo2* with 191 employments, not the *Acme Sandbox Corp* at ~42 that the engagement brief and Remote's own first-call documentation describe. No code changed as a result — the header was already specified to read the snapshot — but the example copy above is now the real string, and the README states the discrepancy rather than repeating the brief's illustrative name.
 
-**When the fixture is selected it is unmistakable, including out of context.** The page carries a full-width amber band with the persistent text *Demo data — synthetic fixture, not Acme's organization*, and the document title changes to match so a browser-tab screenshot is unambiguous too. Colour alone would fail WCAG SC 1.4.1 at Level A, and a screenshot circulating without its page is the realistic way synthetic data gets mistaken for real.
+The fixture is **selected, never fallen back to**. Synthetic records must never be served as though they were the customer's organization — the one case where usability and integrity genuinely conflict, and integrity wins. If `data/snapshot.json` is absent or unparseable, the system renders the empty state of §F.2 naming the cause, not the fixture.
+
+**When the fixture is selected it is unmistakable, including out of context.** The page carries a full-width amber band with the persistent text *Demo data — synthetic fixture, not real company data*, and the document title changes to match so a browser-tab screenshot is unambiguous too. Colour alone would fail WCAG SC 1.4.1 at Level A, and a screenshot circulating without its page is the realistic way synthetic data gets mistaken for real.
 
 The header reports what the data **is**, and always renders age relatively with the absolute time alongside, so a reader never has to subtract dates to learn how stale the chart is.
 
@@ -302,7 +305,7 @@ Four rules make this deterministic rather than merely described.
 
 *Stated limitation:* with no manager email in the projection, two distinct people who share a full name would merge into one external node. This is recorded in the README rather than guessed at — the alternative, keying on a personal identifier, would put an email address into a public artifact to fix a case that a 42-person company almost certainly does not have.
 
-External managers are rendered rather than hidden because Acme wants their organization, not the Remote-managed subset of it. Dropping the line to a manager paid through a different system leaks an integration boundary into the customer's view of their own company. The node renders *and* the ledger reports it; those were never alternatives.
+External managers are rendered rather than hidden because the customer wants their organization, not the Remote-managed subset of it. Dropping the line to a manager paid through a different system leaks an integration boundary into the customer's view of their own company. The node renders *and* the ledger reports it; those were never alternatives.
 
 **3 · Cycles are cut by construction, at a node chosen independently of traversal order.** After edges are built, a DFS with colour marking detects self-references and loops of any length, and re-parents the affected member to a root. The forest is acyclic because it was made acyclic, not because the data was trusted.
 
@@ -330,7 +333,9 @@ Every walked record has exactly one home — the chart or the quarantine. Nothin
 | 2 | `GET /v1/employments?page=1&page_size=1` | `total_count` — the independent control total | 1 |
 | 3 | `GET /v1/employments/bulk?company_id={id}&limit=100` | Full employment records including manager linkage | `ceil(N/100)` |
 
-**Budget: `2 + ceil(N/100)`.** Remote's first-call documentation shows a demo company at `total_count: 42`, so a company of that size syncs in three requests — roughly 1% of the per-minute company budget, spent a handful of times over the life of the project rather than continuously.
+**Budget: `2 + ceil(N/100)`.** H0 measured the issued sandbox at `total_count: 191`, so the full sync costs **4 requests** — identity, control total, and two bulk pages — not the three a 42-person company would have taken. Roughly 1.3% of the per-minute company budget, spent a handful of times over the life of the project rather than continuously.
+
+One caveat on that figure, because it is the kind of arithmetic that quietly goes wrong: `N` is the number of records **bulk** returns, while 191 is the control total from the **list** endpoint, which excludes deleted records (§E.4). Bulk does not exclude them, so `N ≥ 191`, and the budget rises to 5 requests if bulk returns more than 200. `Provenance.apiCallCount` is counted by the client rather than predicted, so the recorded value is the measured one either way.
 
 Call 2 is ordered deliberately **before** the bulk walk. It costs one request, returns a single record, and means that if the walk later fails mid-cursor, the operator still knows how many employments the company was supposed to have.
 
@@ -345,6 +350,8 @@ Remote's guide *Sync your workforce data efficiently* recommends `GET /v1/employ
 `GET /v1/employments/bulk` resolves this in a single cursor walk: full-detail records, manager linkage included, `ceil(N/100)` calls. It is indexed in Remote's machine-readable documentation as "Bulk list employments," lists both Sandbox and Production servers, and carries no beta, deprecated, or partner-only marker.
 
 **Two consequences for the build.** First, no list-plus-detail fallback is written: a fallback that reproduces a documented anti-pattern is worse than no fallback. Second, the residual risk on bulk is *entitlement*, not documentation status — it requires `employment:read` or an enclosing scope, and the issued token's scope set is not knowable in advance. This is verified at H0 before any code depends on it, distinguishing `403` (valid token, missing scope) from `401` (expired or revoked token).
+
+**H0 confirmed both halves against the live sandbox, so this is now an observation rather than an inference.** `fixtures/captured/employments-list.json` holds a real list response: its employment object carries `job_title`, `department`, `department_id`, `country`, `status`, `type`, and `short_id`, and **no `manager`, `manager_employment_id`, `manager_email`, or `manager_id`** — the recommended path genuinely cannot produce a reporting edge. `fixtures/captured/employments-bulk.json` holds a real bulk page returning `200` with all four manager fields present. Both files are committed, so the contradiction between Remote's guide and Remote's schema is reproducible by a reader holding only this repository.
 
 ### E.3 Endpoints evaluated and not used
 
@@ -371,9 +378,11 @@ Every row below is a documented inconsistency or trap found during the API audit
 | The list endpoint excludes deleted records; bulk does not | A naive `total_count === recordCount` check fails permanently | The invariant subtracts: `listTotalCount === recordCount − deletedCount` |
 | `country` is a full object (`NullableCountry`), not a string | Projecting it whole would drag country-specific form schemas into a public artifact and multiply snapshot size | Exactly two leaves — `name` and `alpha_2_code`. A test asserts the projected object carries no other keys. The whole field is nullable, so both leaves are `string \| null` |
 | The bulk `status` enum is **wider** than Remote's own employment-statuses guide, adding `pre_hire`, `created_awaiting_reserve`, `created_reserve_paid`, `job_title_review`, `pending_post_self_enrollment_actions`, and `offboarding` | A strict `z.enum()` quarantines healthy records the moment Remote adds a value, inflating `RECORD_INVALID` and turning the Integrity panel into a false-positive generator | `status`, `user_status`, `type`, and `lifecycle_stage` parse as `z.string()` and render as received. Strict validation applies to identifiers only |
-| **"Terminated" is not a Remote employment status.** No such value exists in either vocabulary | Filtering on it silently matches nothing | Departure is detected from three signals together: `status ∈ {offboarding, archived, deleted}`, `lifecycle_stage === 'offboarded'`, or `user_status ∈ {inactive, cancelled, deleted}`. `termination_date` exists only on the single-record endpoint and is unavailable to this sync by construction |
+| **"Terminated" is not a Remote employment status.** No such value exists in either vocabulary | Filtering on it silently matches nothing | Departure is detected from three signals together: `status ∈ {offboarding, archived, deleted}`, `lifecycle_stage === 'offboarded'`, or `user_status ∈ {inactive, cancelled, deleted}`. **H0 correction:** `termination_date` *is* present on bulk records, contrary to the audit's claim that it appears only on the single-record endpoint — but it is the weakest of the four signals and adding it changes no outcome. On the sampled page it was non-null on 6 records, all 6 already flagged by the three signals, while 7 further departed records carried it null. It stays out of the §D.2 projection |
 | Bulk prose states `files` is always `null`, while the embedded schema declares it a required array | A faithful validator fails every record | The narrow projection ignores `files` entirely |
-| `manager_employment_id` is populated only when the manager is also managed through Remote, and is null otherwise. There is no `manager_id` | Assuming the ID is always present drops every externally-managed report | The resolution ladder in §D.6 exists precisely for this |
+| `manager_employment_id` is populated only when the manager is also managed through Remote, and is null otherwise | Assuming the ID is always present drops every externally-managed report | The resolution ladder in §D.6 exists precisely for this |
+| **`manager_id` exists on the bulk record and is a `user_id`, not an employment ID.** The audit stated there is no such field; H0 found it populated on all 83 records that carry a `manager_employment_id`, and it never equals that field | **This is the most dangerous field on the record.** Its name reads as the manager pointer, and an implementation that took it would build the graph in the wrong identifier space. In the issued sandbox every one of the 100 sampled employments shares a single `user_id`, so an edge built on `manager_id` would collapse the entire company into one node while looking entirely plausible in code review | Not read, and not in the §D.2 projection. `manager_employment_id` is the sole authority (§D.6 rung 1). Verified: for all 79 records whose manager resolves within the sampled page, `manager_id === resolvedManager.user_id` exactly |
+| **`user_id` is not a person key in this data.** All 100 sampled employments share one `user_id` value | Any join, dedupe, or identity decision keyed on `user_id` merges the entire company | The employment ID is the only identity this system uses (§D.1), which this finding independently confirms. It is also why `/v1/company-managers`, keyed to `user_id`, is excluded from graph logic (§E.3) |
 
 ### E.5 Auth, transport, and production evolution
 
@@ -407,16 +416,29 @@ A **rendering rule** is expected robustness: the system displays unusual but val
 
 | Code | Trigger | Behaviour | Sev | Owner |
 |---|---|---|---|---|
-| `ROOT_NO_MANAGER` | No manager fields at all — equivalently, `basis === 'none'`, which a cycle-cut edge never carries (§D.6 rule 3) | Rendered as a root. Multiple roots display side by side as a forest | info | Acme People Ops |
-| `MGR_EXTERNAL` | Manager named but not managed through Remote | Rendered in the tree as a synthetic parent — dashed border, no avatar, "outside Remote" label. Merged one node per manager name. Still ledgered, because People Ops may want them onboarded | low | Acme People Ops |
-| `MGR_DANGLING` | Manager ID points outside the fetched set | Person retained and attached to an "Unresolved manager" placeholder root. Never dropped to tidy the tree | med | Acme People Ops |
-| `CYCLE_BROKEN` | A reporting loop of any length, **including a self-manager** | DFS detects it, one edge is cut deterministically, affected members are re-parented to a root, and the full loop is named in the ledger | high | Acme People Ops |
+| `ROOT_NO_MANAGER` | No manager fields at all — equivalently, `basis === 'none'`, which a cycle-cut edge never carries (§D.6 rule 3) | Rendered as a root. Multiple roots display side by side as a forest | info | People Ops |
+| `MGR_EXTERNAL` | Manager named but not managed through Remote | Rendered in the tree as a synthetic parent — dashed border, no avatar, "outside Remote" label. Merged one node per manager name. Still ledgered, because People Ops may want them onboarded | low | People Ops |
+| `MGR_DANGLING` | Manager ID points outside the fetched set | Person retained and attached to an "Unresolved manager" placeholder root. Never dropped to tidy the tree | med | People Ops |
+| `CYCLE_BROKEN` | A reporting loop of any length, **including a self-manager** | DFS detects it, one edge is cut deterministically, affected members are re-parented to a root, and the full loop is named in the ledger | high | People Ops |
 | `RECORD_INVALID` | A record fails schema validation on a field the graph depends on | Quarantined with the parse error attached. The sync continues; one malformed employee never blanks the chart | high | Integration owner |
 | `COUNT_MISMATCH` | `listTotalCount ≠ recordCount − deletedCount` | Snapshot still written and served. **Sync-scoped:** shown in the review bar and in the disclosed conservation detail, never on a person card | high | Integration owner |
 
 A self-manager is a reporting cycle of length one and the same DFS resolves it identically, so it is `CYCLE_BROKEN` with a loop length of 1 rather than a second name for one behaviour.
 
 **Scope is fixed per code, not decided per instance.** The first five are `scope: 'record'`; `COUNT_MISMATCH` is the only `scope: 'sync'` code. `RECORD_INVALID` is record-scoped even when the pre-pass failure leaves it without an `employmentId` (§D.2) — which is exactly the case that makes the scope field necessary rather than derivable.
+
+**What the real data exercises, measured at H0 over the first bulk page (100 of 191 records).** This is recorded because it decides where each guarantee's evidence comes from, and because a code with no instance in either dataset would be untested prose.
+
+| Rung / rule | Real data | Consequence |
+|---|---|---|
+| Rung 1 — `manager_employment_id` resolves | 83/100 | Well exercised. The authoritative edge is the common case |
+| Rung 4 — no manager fields at all | 17/100 | `ROOT_NO_MANAGER` and the multi-root forest are exercised by real data, not only by the fixture |
+| Rung 3 — manager named, no ID | **0/100** | `MGR_EXTERNAL` may have no instance in the real dataset. Its demonstration burden falls entirely on `fixtures/edge-cases.json`, and `?source=fixture` is what makes that observable on the deployed system (F8) |
+| Rung 2 — ID resolves to nothing | 4/100 on this page | Not yet `MGR_DANGLING` signal: it is the expected artifact of sampling one page of a 191-person company. Meaningful only after the full walk |
+| §F.2 critical nulls | 7 null `job_title`, 7 null `department` | The `Missing` marker and the Unassigned bucket are live on real data |
+| §F.2 departed with a team | 1 record | The rule that the toggle never removes someone with direct reports has a real instance, not just a fixture one |
+
+The 0/100 on rung 3 is the sharpest of these. It is the case F8 was written for: data quality is a property of the source, and a dataset that happens to be clean must not make the handling of a dirty one unobservable.
 
 ### F.2 Rendering rules — specified behaviour, no ledger row
 
@@ -508,7 +530,7 @@ With that in place, and only with it, re-running the sync over unchanged data is
 ### G.4 Traceability
 
 1. **Provenance travels inside the snapshot** — source, capture time, company ID, page count, record count, reconciliation flags, content hash, API calls spent. The capture line renders in the header on every view; the counters render in full in the review bar. Neither is buried in a tooltip.
-2. **The exception ledger is the audit record.** One object serves both the UI panel and the record of what the sync rejected. No email, token, or raw Remote payload enters it. It is the handover artifact for Acme's People Ops team.
+2. **The exception ledger is the audit record.** One object serves both the UI panel and the record of what the sync rejected. No email, token, or raw Remote payload enters it. It is the handover artifact for the customer's People Ops team.
 3. **Deterministic and reproducible.** Fixtures committed, domain layer pure, collections canonically ordered before hashing, snapshot content-hashed and version-controlled.
 4. **Redacted logs, written with the snapshot.** The sync script logs endpoint, page index, duration, and rate-limit headers as JSON lines. `data/sync.log` is written in the same step as `data/snapshot.json` and carries that snapshot's `contentHash`, so the two are a matched pair rather than two files that can drift apart across runs — a reader comparing them is examining one walk, which is the only reason the log is worth committing. The token is never logged; personal data never enters a log line.
 
@@ -566,7 +588,7 @@ fixtures/captured/       real sandbox responses, redacted at capture (§I.1)
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│ HEADER    Acme Sandbox Corp                                   │
+│ HEADER    CatarinaFDE Demo2                                   │
 │           Data captured 21 Aug, 2:14 PM · yesterday           │
 ├───────────────────────────────────────────────────────────────┤
 │ TOOLBAR   [ search ]  [ department ▾ ]  [ ] hide departed     │

@@ -1,5 +1,7 @@
 # Org Chart — Delivery Plan
 
+**Version:** 1.1 · amended 2026-08-22 after H0 and the P1b deployment. Revision history at the foot of this document. Tracks `build.md` 1.1.
+
 **Companion to `build.md`.** That document is the single source of truth for *what the system is*. This one is the single source of truth for *what gets written, in what order, and how you know it is finished*.
 
 **The rule between them:** this document may **instantiate** a decision in `build.md` — an exact signature, an exact string, an exact fixture record — but it may never **originate** one. If executing a step here requires a choice `build.md` does not determine, that choice is a gap in `build.md` and is fixed there, not here. A `Why` column in this document is a symptom, not a feature.
@@ -93,10 +95,10 @@ Every file, its governing section, and its public surface. No file outside this 
 
 | Code | scope | sev | Owner | `suggestedAction` |
 |---|---|---|---|---|
-| `ROOT_NO_MANAGER` | record | info | Acme People Ops | `No manager is set. If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.` |
-| `MGR_EXTERNAL` | record | low | Acme People Ops | `Their manager is named but not managed through Remote, so the reporting line cannot be verified. Onboard the manager to Remote to make this link authoritative.` |
-| `MGR_DANGLING` | record | med | Acme People Ops | `Their manager record could not be found in this company. Re-select the manager in Remote so the link points to a current employment.` |
-| `CYCLE_BROKEN` | record | high | Acme People Ops | `This reporting line loops back on itself. Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.` |
+| `ROOT_NO_MANAGER` | record | info | People Ops | `No manager is set. If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.` |
+| `MGR_EXTERNAL` | record | low | People Ops | `Their manager is named but not managed through Remote, so the reporting line cannot be verified. Onboard the manager to Remote to make this link authoritative.` |
+| `MGR_DANGLING` | record | med | People Ops | `Their manager record could not be found in this company. Re-select the manager in Remote so the link points to a current employment.` |
+| `CYCLE_BROKEN` | record | high | People Ops | `This reporting line loops back on itself. Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.` |
 | `RECORD_INVALID` | record | high | Integration owner | `This record could not be read and is excluded from the chart. Check the field named above against the Remote API contract.` |
 | `COUNT_MISMATCH` | sync | high | Integration owner | `The employment list and the bulk export disagree on how many people exist. Re-run the sync; if it persists, the walk may be incomplete.` |
 
@@ -110,9 +112,9 @@ Each phase's definition of done is a **checkable assertion**, not a judgement. A
 
 | Phase | Block | Builds | Done when |
 |---|---|---|---|
-| **P0** | H0 | — | All four gates in §1 answered; `fixtures/captured/` holds a redacted identity, list, and bulk response; and checklist item 2 in §7 already passes against them |
-| **P1a** | H1 | `schemas.ts`, `remote-client.ts`, `snapshot-writer.ts`, `scripts/sync.ts` | `pnpm sync` writes a `data/snapshot.json` whose `provenance.terminalCursorReached` is `true`, `apiCallCount === 2 + ceil(N/100)`, and which contains no key matching `/email/i` |
-| **P1b** | H1 | Next scaffold, `layout.tsx`, a placeholder `page.tsx` | A hello-world is live on a public Vercel URL with no environment variable configured |
+| **P0** ✅ | H0 | — | **Done 2026-08-22.** All four gates in §1 answered (§1.1); `fixtures/captured/` holds a redacted identity, list, and bulk response; checklist item 2 in §7 passes against `fixtures/` — it is re-run over `data/` too once P1a creates it |
+| **P1a** | H1 | `schemas.ts`, `remote-client.ts`, `snapshot-writer.ts`, `scripts/sync.ts` | `pnpm sync` writes a `data/snapshot.json` whose `provenance.terminalCursorReached` is `true`, `apiCallCount === 2 + ceil(N/100)` (expected **4**, or 5 if bulk returns more than 200 records — build.md §E.1), and which contains no key matching `/email/i`. **Plus the check H0 left open:** `listTotalCount === recordCount − deletedCount` is evaluated against the completed walk and its result — reconciled, or a `COUNT_MISMATCH` with the residual named — is recorded in `progress-tracker.md` before P2a starts |
+| **P1b** ✅ | H1 | Next scaffold, `layout.tsx`, a placeholder `page.tsx` | **Done 2026-08-22.** Live at **https://remote-org-chart.vercel.app** — `200`, served by Vercel, `http` 308s to `https`, built with **zero environment variables configured**, which is the assertion this phase exists to prove. Two `layout.tsx` obligations remain open and move to P4a: the `X-Robots-Tag: noindex` header (NFR 4) and the document title, still the scaffold's *Create Next App* |
 | **P2a** | H2 | `types.ts`, `normalize.ts`, `resolve-edges.ts`, `break-cycles.ts`, `build-forest.ts`, `reconcile.ts`, `ledger.ts`, `filter.ts` | `pnpm lint` passes with the `domain/` boundary rule active, and the pipeline returns a `Forest` from the real snapshot |
 | **P2b** | H2 | README §§ architecture, scope decisions, out-of-scope table | The out-of-scope table is complete and each row carries its build-it-when condition |
 | **P3** | H3 | `fixtures/edge-cases.json`, all domain tests, the contract and projection suites | `pnpm test` green. Six code tests, the conservation assertion, the two projection assertions, the determinism assertion, the two shuffle assertions, and the contract parse over every file in `fixtures/captured/` all present and named |
@@ -121,7 +123,7 @@ Each phase's definition of done is a **checkable assertion**, not a judgement. A
 | **P5** | H5 | buffer | Reserved for P4 overrun. Consumed by the cut order in §6 if it is not enough |
 | **P6** | H6 | README completion | A clean clone with no `.env` runs `pnpm i && pnpm dev` and renders the full chart |
 
-**Dependency note:** P2a depends only on `types.ts` and the fixture shape, not on P1a completing. If H0 finds a `403` on bulk, P2a still proceeds against fixtures while §E is re-planned.
+**Dependency note:** P2a depends only on `types.ts` and the fixture shape, not on P1a completing. The `403` contingency in that note is now moot — G2 passed, so §E needs no re-plan — but the independence still holds and is worth keeping, because it is what lets domain work start before a full walk exists.
 
 ---
 
@@ -184,11 +186,23 @@ If the cut order reaches item 6 and time is still short, the correct move is to 
 |---|---|
 | 1 | Public URL renders the chart with no login and no configured credential |
 | 2 | `grep -rEi 'ra_test\|ra_live\|[a-z0-9._%+-]+@[a-z0-9.-]+' data/ fixtures/` returns nothing. **The whole `fixtures/` tree, `captured/` included** — a scan that skips the one directory holding real API responses is not a check |
-| 3 | Fresh clone, no `.env`: `pnpm i && pnpm dev` renders the full chart |
+| 3 | Fresh clone, no `.env.sync`: `pnpm i && pnpm dev` renders the full chart |
 | 4 | `pnpm test` green from that clone, with no network |
 | 5 | `pnpm sync` re-run over unchanged data produces no `git diff` (§G.3) |
 | 6 | Every §H.3 URL parameter round-trips through copy-paste in a fresh tab, **including `?person=` combined with a filter that excludes them** — the card still renders, and says it is outside the filter |
 | 7 | Keyboard-only traversal from root to deepest leaf and into the review bar |
 | 8 | `?source=fixture` shows the amber band, the text label, and the changed page title |
-| 9 | README carries: setup, architecture, the six H0 answers, verification without a token, assumptions, limitations, and the out-of-scope table |
-| 10 | Submission email: repo link, deployed link, tech choices, and the §E.2 documentation finding |
+| 9 | README carries: setup, architecture, the six H0 answers (§1.1), verification without a token, assumptions, limitations, and the out-of-scope table. The company is named as **CatarinaFDE Demo2**, with the brief's *Acme Sandbox Corp* identified as illustrative rather than what the token resolves to |
+| 10 | Submission email: repo link, deployed link, tech choices, and the documentation findings — §E.2's guide-versus-schema contradiction, now backed by two committed real responses, and the `manager_id` / `user_id` trap from build.md §E.4 |
+| 11 | No `.env.sync` in the tracked tree, and no full token value anywhere in history: `git grep -I -E 'ra_(test\|live)_[0-9a-zA-Z]{8,}' $(git rev-list --all)` returns nothing |
+
+---
+
+## Revision history
+
+| Version | Date | Change |
+|---|---|---|
+| **1.1** | 2026-08-22 | H0 outcome recorded in §1.1 — all four gates pass, no §E re-plan, email-inference cut confirmed shut at 0%. Count reconciliation carried forward into P1a's definition of done, which is where it first becomes evaluable. P0 and P1b marked done; P1b's deployment is live at `https://remote-org-chart.vercel.app` with zero environment variables, and the two `layout.tsx` obligations it did not cover — `X-Robots-Tag` and the document title — are named against P4a rather than left implied. §3 owner strings follow build.md 1.1 from `Acme People Ops` to `People Ops`. §7 gains a token-history assertion and corrects `.env` to `.env.sync`. |
+| **1.0** | 2026-08-21 | Initial delivery plan against `build.md` 1.0. |
+
+**On the rule between the documents.** Every change above either records a measurement or instantiates a decision `build.md` 1.1 now carries. The two contract corrections H0 produced — `termination_date`, `manager_id` — were written into `build.md` §E.4 first and are only referenced here, which is the boundary this plan is supposed to hold.

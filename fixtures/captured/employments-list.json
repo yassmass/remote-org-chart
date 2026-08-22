@@ -1,0 +1,40 @@
+{
+  "data": {
+    "total_count": 191,
+    "current_page": 1,
+    "total_pages": 191,
+    "employments": [
+      {
+        "id": "0b091a51-5508-40cb-943a-9ddd36904e84",
+        "status": "active",
+        "type": "global_payroll_employee",
+        "country": {
+          "code": "redacted",
+          "supported_json_schemas": [
+            "redacted",
+            "redacted",
+            "redacted",
+            "redacted",
+            "redacted",
+            "redacted"
+          ],
+          "name": "United Kingdom (UK)",
+          "alpha_2_code": "GB"
+        },
+        "department": "Finance",
+        "external_id": null,
+        "full_name": "Abigail Baker",
+        "job_title": "Senior Accountant",
+        "login_email": "redacted",
+        "personal_email": "redacted",
+        "partner_external_id": null,
+        "employment_model": "redacted",
+        "short_id": "ME9NA1",
+        "work_email": null,
+        "department_id": "96530569-7aff-478e-a3e8-796ae4055e50",
+        "employment_lifecycle_stage": "onboarded",
+        "work_address_details": {}
+      }
+    ]
+  }
+}
