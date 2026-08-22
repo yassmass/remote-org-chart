@@ -1,6 +1,7 @@
 # Org Chart — Build Specification
 
-**Version:** 1.1 · amended 2026-08-22 after the H0 contract spike. Revision history at the foot of this document.
+**Version:** 1.3 · 2026-08-22. Revision history at the foot of this document.
+
 **System:** Organizational chart for the company the API token resolves to. In the issued sandbox that is **CatarinaFDE Demo2** (`5ca666ff-…`, 191 employments), not the "Acme Sandbox Corp" the engagement brief describes — see §D.5.
 **Data source:** Remote Customer API (sandbox) · `gateway.remote-sandbox.com/v1`
 **Budget:** 8 hours of focused work
@@ -16,19 +17,25 @@ The sync is a **build step**, not a runtime path. A human runs `pnpm sync`; it w
 
 ```mermaid
 flowchart TD
-    SYNC["pnpm sync — build step, human-run<br>identity → control total → bulk cursor walk"]
     API["gateway.remote-sandbox.com/v1"]
-    SNAP["data/snapshot.json<br>committed · client-safe"]
-    FIX["fixtures/edge-cases.json<br>hand-authored"]
-    DOM["Domain — pure, zero I/O<br>normalize → resolveEdges → breakCycles<br>→ buildForest → reconcile → ledger"]
+    SYNC["pnpm sync — build step, human-run<br>identity → control total → bulk cursor walk"]
+    FIX["fixtures/edge-cases.json<br>hand-authored · raw records"]
+    RESOLVE["Domain · resolution half — pure, zero I/O<br>normalize → resolveEdges → breakCycles<br>→ reconcile → ledger"]
+    SNAP["data/snapshot.json — committed<br>fixtures/edge-cases.snapshot.json — generated<br>both client-safe OrgSnapshots"]
+    ASSEMBLE["Domain · assembly half — pure<br>buildForest → filterForest"]
     UI["UI — server-rendered<br>tree · person card · review bar"]
 
-    SYNC -->|HTTPS, 3 requests| API
-    SYNC --> SNAP
-    SNAP --> DOM
-    FIX --> DOM
-    DOM --> UI
+    SYNC -->|HTTPS, 4 requests| API
+    SYNC --> RESOLVE
+    FIX --> RESOLVE
+    RESOLVE --> SNAP
+    SNAP --> ASSEMBLE
+    ASSEMBLE --> UI
 ```
+
+**The domain sits on both sides of the snapshot, and the split is by what the answer depends on.** Resolution — how a record becomes a person, which parent each edge points at, where a cycle is cut, what the ledger says, and whether the counts reconcile — depends only on what the API returned, so it is decided once, under `pnpm sync`, and its results are written into the artifact. Assembly — the forest, its ordering, its depths and counts, and any filter — depends on the request, so it happens at render.
+
+Two consequences follow, and both are the reason for the split rather than side effects of it. `Provenance.countReconciled` and `contentHash` are fields *of* the snapshot, so reconciliation and hashing must precede the write; a check that ran after the file existed could not be recorded in it. And because resolution is a pure function running at build time, the edge-case fixture stays a set of raw records and its served form is generated from it (§D.5).
 
 **The deployed application performs no network I/O and holds no credential.** That is the load-bearing decision in this design, and it follows from a property of the data: org structure changes on a scale of weeks, so runtime freshness buys almost nothing here. Making the sync a build step removes, rather than solves, an entire class of problem — concurrent cold-cache syncs, retry amplification against a company-wide rate budget, a bad sync overwriting a good snapshot, and a revoked token scheduling authenticated calls forever.
 
@@ -41,14 +48,16 @@ Everything that can be wrong about the data — a cycle, a dangling pointer, a m
 | Block | Hours | Output |
 |---|---|---|
 | **H0 · Contract spike** | 0:00–0:45 | `curl` identity, control total, and one bulk page. Confirm the token carries `employment:read`. **Redact each body at capture per §I.1**, then save into `fixtures/captured/`. |
-| **H1 · Sync + deploy** | 0:45–2:00 | `RemoteClient`, Zod projection, cursor walk, `pnpm sync` writing `data/snapshot.json`. **A hello-world is deployed to Vercel in this block**, not at the end. |
-| **H2 · Domain** | 2:00–3:30 | normalize · resolve-edges · break-cycles · build-forest · reconcile · ledger. Pure. **The README's architecture rationale and out-of-scope table are written here**, while the decisions are being made. |
+| **H1 · Sync + deploy** | 0:45–2:30 | `RemoteClient`, Zod projection, cursor walk, **and the domain's resolution half** — normalize · ledger · resolve-edges · break-cycles · reconcile — since `pnpm sync` writes a complete `OrgSnapshot` and cannot do so without them. **A hello-world is deployed to Vercel in this block**, not at the end. |
+| **H2 · Domain · assembly** | 2:30–3:30 | build-forest · filter · the fixture bake. Pure. **The README's architecture rationale and out-of-scope table are written here**, while the decisions are being made. |
 | **H3 · Tests** | 3:30–4:15 | Edge-case fixture + one test per ledger code + conservation law + determinism. ~15 tests. |
 | **H4 · UI** | 4:15–6:15 | Screen topology per §H.3: tree, person card, toolbar, review bar. |
 | **H5 · Buffer** | 6:15–7:00 | Reserved. Deployment is already live and needs only a push, so this hour absorbs H4 rather than funding new scope. |
 | **H6 · Write-up** | 7:00–8:00 | README completion: setup, verification without a token, assumptions, limitations. |
 
 Two of these placements are deliberate rather than incidental. Deployment sits in H1 because it is the one failure that cannot be recovered at hour 7.5, and with no environment variable to configure it costs ten minutes to remove from the critical path entirely. The README's reasoning sits in H2 because it carries the scope decisions, and the block carrying the scope decisions must not also be the block that absorbs an overrun — which is what the last block always becomes.
+
+The H1/H2 boundary moved thirty minutes later in 1.3 and the two blocks were renamed, because the domain divides by *when it runs* rather than by being one unit of work (§G.1). Five of its modules are prerequisites for `pnpm sync` producing anything at all, so they cannot sit in a block after it. H2's own work shrinks correspondingly, which is why the reallocation is a shift rather than an overrun.
 
 ---
 
@@ -141,9 +150,13 @@ The sync script parses and retains **only** these fields from each bulk record. 
 
 **No email field is read at all** — not `work_email`, not `login_email`, not `manager_email`, not `personal_email`. This is stronger than reading emails and stripping them later, and it is possible because the edge ladder in §D.6 resolves managers by ID or by name, never by email address (see the note on email inference under **Deliberately out of scope**).
 
-Parsing happens in **two stages**. A minimal pre-pass reads `id` and `status` only — two fields whose absence would mean the response is not an employment list at all — and every walked record passes through it. The full projection is then validated per record; a failure quarantines that record as `RECORD_INVALID`.
+Parsing happens in **two stages**. A minimal pre-pass reads `id` and `status` — two fields whose absence would mean the response is not an employment list at all — and every walked record passes through it. The full projection is then validated per record; a failure quarantines that record as `RECORD_INVALID`.
 
 The pre-pass is not decoration: a quarantined record must still be **counted** and still be **classifiable as deleted**, or the count reconciliation in §G.2 would render a green check while being false.
+
+It also reads `user_status` and `employment_lifecycle_stage` **non-fatally** — absence passes, and the failure criterion stays exactly `id` and `status`. They are read because §G.2's identity is provisional and every term of whichever identity holds must come from this stage: offboarded and inactive are not `status` values, so a pre-pass blind to them could not classify a record that failed the projection, which is the one case the pre-pass exists for. These narrow once the identity is settled.
+
+Both stages run in `lib/ingest.ts` — the one module that turns raw records into validated ones, imported by every script that reads them, the bulk walk and the fixture bake alike. It calls the schemas in `lib/schemas.ts` and raises `RECORD_INVALID` through `ledger.issue()` rather than authoring the code itself, so both the parse and the code keep a single owner (§H.2). A parse living inside a script's `main()` would satisfy neither: §I.1 requires a test for every §F.1 code, and code reachable only by running a script against a token has no test layer this document admits. `normalize.ts` therefore receives records that have already satisfied the projection and cannot fail.
 
 A record that fails **the pre-pass itself** has no readable identity, and the invariant has to say what becomes of it rather than argue that it cannot happen. It is counted in `recordCount` and quarantined as `RECORD_INVALID` with a null `employmentId` and a positional detail — `page 2, record 17` — so the conservation law stays total and the walk continues, consistent with the rule that one malformed record never blanks the chart. It cannot be classified as deleted, so a nonzero pre-pass failure count is itself the explanation for any `COUNT_MISMATCH` raised alongside it, and both findings appear in the same ledger for a reader to connect.
 
@@ -161,6 +174,10 @@ A record that fails **the pre-pass itself** has no readable identity, and the in
 | `Provenance` | Answers "where did this number come from, and when" without asking the author |
 
 ### D.4 The model
+
+Every type below is transcribed in `domain/types.ts`, which imports nothing. One type that is *not* in this section lives there too: `EmploymentRecord`, the §D.2 projection expressed as a plain type. It belongs in the domain because `normalize()` consumes it and §H.2 makes `domain/` importing `lib/` a build error — dependencies point inward. `lib/schemas.ts` annotates its Zod projection against it, so the parser and the domain's input contract cannot drift apart without failing to compile.
+
+`OrgSnapshot` is the **on-disk** shape of `data/snapshot.json`, not merely a render-time container. Everything in it is produced by the resolution half of the domain, under `pnpm sync`; `OrgNode` and `Forest` are produced at render and are never serialized, which is why `Forest` can carry a `Map`.
 
 ```ts
 /** The complete client-safe payload. Everything rendered comes from this object. */
@@ -244,9 +261,17 @@ type Provenance = {
   quarantinedCount: number;            // of those, failed the full projection -> RECORD_INVALID
   deletedCount: number;                // of those, status === 'deleted', read at the pre-pass
   listTotalCount: number | null;       // control total from /v1/employments
-  countReconciled: boolean;            // listTotalCount === recordCount - deletedCount
+  countReconciled: boolean;            // the identity in §G.2 check 2. A null listTotalCount
+                                       // is not a runtime state to render: a control total
+                                       // that cannot be read removes COUNT_MISMATCH from
+                                       // §F.1 altogether, rather than leaving this field
+                                       // with no defined value
   terminalCursorReached: boolean;
-  contentHash: string;
+  contentHash: string;              // covers the snapshot's data with `capturedAt` and
+                                    // this field itself excluded — see §G.3. That
+                                    // exclusion is what makes a git diff on the
+                                    // committed snapshot mean the data changed rather
+                                    // than that it was re-fetched
   apiCallCount: number;
 };
 
@@ -264,19 +289,29 @@ type OrgNode = {
 };
 
 type Forest = {
-  roots: OrgNode[];
+  roots: OrgNode[];            // ordered by the rule in §G.3, never by arrival order
   byId: Map<string, OrgNode>;
   maxDepth: number;            // consumed by the toolbar summary line (§H.3) — a derived
                                // field with no reader is a field that should not exist
+  principalRootId: string | null;
+                               // Which node is the head of the organization is a domain
+                               // decision (§H.3 person card), so it is decided in the layer
+                               // that owns decisions rather than joined together in a
+                               // component. Null only if no root qualifies — an organization
+                               // consisting entirely of synthetic and cycle-cut roots.
 };
 ```
 
 ### D.5 The two sources
 
-| Source | Selector value | Header copy | Role |
-|---|---|---|---|
-| **Committed snapshot** | `?source=snapshot` (default) | `CatarinaFDE Demo2 · Data captured 22 Aug, 3:13 PM · today` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
-| **Edge-case fixture** | `?source=fixture` | `Demo data — synthetic fixture, not real company data` | The zero-credential run path, every unit test, and the demonstration surface for §F |
+| Source | Selector value | Served file | Header copy | Role |
+|---|---|---|---|---|
+| **Committed snapshot** | `?source=snapshot` (default) | `data/snapshot.json` | `CatarinaFDE Demo2 · Data captured 22 Aug, 3:13 PM · today` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
+| **Edge-case fixture** | `?source=fixture` | `fixtures/edge-cases.snapshot.json` | `Demo data — synthetic fixture, not real company data` | The zero-credential run path and the demonstration surface for §F |
+
+Both served files are `OrgSnapshot`s, so `source.ts` statically imports one or the other and never converts. The fixture's served form is **generated, not authored**: `fixtures/edge-cases.json` holds raw records and is what every domain test runs against, and the resolution half of the domain produces the `.snapshot.json` beside it. Both are committed.
+
+That indirection is what makes F8's claim true rather than merely plausible. Authoring the served form directly would state the resolver's output as the resolver's input, so every ledger-code test would pass even if `resolve-edges.ts` were wrong — the same defect that keeps `isDeparted` a predicate rather than a stored field (§E.4). The sibling is regenerated by the command CI runs, so a stale one fails the build rather than the eye.
 
 **The company name is rendered from `snapshot.company.name`, never from a constant.** H0 established that the issued sandbox resolves to *CatarinaFDE Demo2* with 191 employments, not the *Acme Sandbox Corp* at ~42 that the engagement brief and Remote's own first-call documentation describe. No code changed as a result — the header was already specified to read the snapshot — but the example copy above is now the real string, and the README states the discrepancy rather than repeating the brief's illustrative name.
 
@@ -303,7 +338,7 @@ Four rules make this deterministic rather than merely described.
 
 **2 · External managers merge on name, and the merge is order-independent.** The slug is a pure function of the manager name — trim, Unicode NFC, lowercase, collapse internal whitespace — so six employments naming the same manager produce **one** node with six children regardless of arrival order. IDs are namespaced `external:<slug>` so a synthetic ID can never collide with an employment UUID.
 
-*Stated limitation:* with no manager email in the projection, two distinct people who share a full name would merge into one external node. This is recorded in the README rather than guessed at — the alternative, keying on a personal identifier, would put an email address into a public artifact to fix a case that a 42-person company almost certainly does not have.
+*Stated limitation:* with no manager email in the projection, two distinct people who share a full name would merge into one external node. This is recorded in the README rather than guessed at — the alternative, keying on a personal identifier, would put an email address into a public artifact to fix a case that requires two *externally managed* managers with identical full names. The population in which that collision can occur is the set of rung-3 managers, which H0 measured at zero across the first hundred records; at 191 employments the premise is weaker than it would be at the ~42 the engagement brief illustrates, which is why it is stated as a limitation rather than dismissed as impossible.
 
 External managers are rendered rather than hidden because the customer wants their organization, not the Remote-managed subset of it. Dropping the line to a manager paid through a different system leaks an integration boundary into the customer's view of their own company. The node renders *and* the ledger reports it; those were never alternatives.
 
@@ -319,7 +354,7 @@ Which edge gets cut cannot be left to "wherever the back-edge was found," becaus
 
 Every walked record has exactly one home — the chart or the quarantine. Nothing is dropped to make the picture tidy.
 
-`recordsQuarantined` counts `RECORD_INVALID` only. Four of the remaining codes are annotations on records that *were* placed — a `ROOT_NO_MANAGER` person is in the tree, and counting them as exceptions would turn the invariant red on healthy data. `COUNT_MISMATCH` is neither placed nor excepted: it is a finding about the walk rather than about any employment, which is what `DataIssue.scope` exists to distinguish. That distinction is load-bearing in the UI as well as in the arithmetic — a sync-scoped finding must never appear on a person card, and `employmentId === null` cannot decide it, because a pre-pass failure carries a null ID too (§D.2). **Both synthetic node kinds are excluded from both sides:** external managers and unresolved-manager placeholders were never fetched, so they can be neither placed nor quarantined. Fixtures for both are authored before the resolver, so the invariant is exercised against them from the first test run.
+`recordsQuarantined` counts `RECORD_INVALID` only. Four of the remaining codes are annotations on records that *were* placed — a `ROOT_NO_MANAGER` person is in the tree, and counting them as exceptions would turn the invariant red on healthy data. `COUNT_MISMATCH` is neither placed nor excepted: it is a finding about the walk rather than about any employment, which is what `DataIssue.scope` exists to distinguish. That distinction is load-bearing in the UI as well as in the arithmetic — a sync-scoped finding must never appear on a person card, and `employmentId === null` cannot decide it, because a pre-pass failure carries a null ID too (§D.2). **Both synthetic node kinds are excluded from both sides:** external managers and unresolved-manager placeholders were never fetched, so they can be neither placed nor quarantined. Fixtures for both exist before the first test run, so the invariant is exercised against them rather than discovered in a failing build later.
 
 ---
 
@@ -375,10 +410,10 @@ Every row below is a documented inconsistency or trap found during the API audit
 | `x-ratelimit-reset` is a **duration in milliseconds**, not a Unix timestamp | Treating it as absolute produces a sleep measured in decades | Parsed as a duration; the unit is asserted in a comment |
 | The bulk response carries **no `total_count`** — only `{ data, next_cursor }` | Completeness cannot be verified within the endpoint | Terminal-cursor and uniqueness guards, plus the cross-endpoint control total (§G.2) |
 | Bulk accepts **only** `company_id`, `cursor`, `limit` — no status or type filter, though the minimal list endpoint offers all three | Archived and deleted employments arrive unbidden | All visibility filtering happens in the domain layer. This is an API-surface asymmetry, not an implementation shortcut |
-| The list endpoint excludes deleted records; bulk does not | A naive `total_count === recordCount` check fails permanently | The invariant subtracts: `listTotalCount === recordCount − deletedCount` |
+| The list endpoint excludes deleted records; bulk does not | A naive `total_count === recordCount` check fails permanently | The invariant subtracts: `listTotalCount === recordCount − deletedCount`. **The exclusion set is documented as deleted-only and has not been verified against a complete walk** — H0 sampled one page of two, where `deletedCount` was 0 while 7 records were `archived` and 13 carried an offboarded lifecycle stage. If the list endpoint excludes any of those as well, this identity is wrong and §G.2 check 2 states what replaces it |
 | `country` is a full object (`NullableCountry`), not a string | Projecting it whole would drag country-specific form schemas into a public artifact and multiply snapshot size | Exactly two leaves — `name` and `alpha_2_code`. A test asserts the projected object carries no other keys. The whole field is nullable, so both leaves are `string \| null` |
 | The bulk `status` enum is **wider** than Remote's own employment-statuses guide, adding `pre_hire`, `created_awaiting_reserve`, `created_reserve_paid`, `job_title_review`, `pending_post_self_enrollment_actions`, and `offboarding` | A strict `z.enum()` quarantines healthy records the moment Remote adds a value, inflating `RECORD_INVALID` and turning the Integrity panel into a false-positive generator | `status`, `user_status`, `type`, and `lifecycle_stage` parse as `z.string()` and render as received. Strict validation applies to identifiers only |
-| **"Terminated" is not a Remote employment status.** No such value exists in either vocabulary | Filtering on it silently matches nothing | Departure is detected from three signals together: `status ∈ {offboarding, archived, deleted}`, `lifecycle_stage === 'offboarded'`, or `user_status ∈ {inactive, cancelled, deleted}`. **H0 correction:** `termination_date` *is* present on bulk records, contrary to the audit's claim that it appears only on the single-record endpoint — but it is the weakest of the four signals and adding it changes no outcome. On the sampled page it was non-null on 6 records, all 6 already flagged by the three signals, while 7 further departed records carried it null. It stays out of the §D.2 projection |
+| **"Terminated" is not a Remote employment status.** No such value exists in either vocabulary | Filtering on it silently matches nothing | Departure is detected from three signals together: `status ∈ {offboarding, archived, deleted}`, `lifecycle_stage === 'offboarded'`, or `user_status ∈ {inactive, cancelled, deleted}`. **H0 correction:** `termination_date` *is* present on bulk records, contrary to the audit's claim that it appears only on the single-record endpoint — but it is the weakest of the four signals and adding it changes no outcome. On the sampled page it was non-null on 6 records, all 6 already flagged by the three signals, while 7 further departed records carried it null. It stays out of the §D.2 projection. **The rule is a predicate over `Person`, never a stored field** — a stored field would be hand-authored into the fixture, making the fixture assert the rule instead of exercising it. The fixture carries the three raw signals; the rule stays under test |
 | Bulk prose states `files` is always `null`, while the embedded schema declares it a required array | A faithful validator fails every record | The narrow projection ignores `files` entirely |
 | `manager_employment_id` is populated only when the manager is also managed through Remote, and is null otherwise | Assuming the ID is always present drops every externally-managed report | The resolution ladder in §D.6 exists precisely for this |
 | **`manager_id` exists on the bulk record and is a `user_id`, not an employment ID.** The audit stated there is no such field; H0 found it populated on all 83 records that carry a `manager_employment_id`, and it never equals that field | **This is the most dangerous field on the record.** Its name reads as the manager pointer, and an implementation that took it would build the graph in the wrong identifier space. In the issued sandbox every one of the 100 sampled employments shares a single `user_id`, so an edge built on `manager_id` would collapse the entire company into one node while looking entirely plausible in code review | Not read, and not in the §D.2 projection. `manager_employment_id` is the sole authority (§D.6 rung 1). Verified: for all 79 records whose manager resolves within the sampled page, `manager_id === resolvedManager.user_id` exactly |
@@ -481,7 +516,7 @@ Absorption is not concealment. Every degradation is named on screen and counted 
 
 ### G.1 Layered contracts
 
-The layers split cleanly by *when* they run. Everything above the line runs once, in a script, in front of a human. Everything below runs on every page view.
+The layers split by *when* they run, and the split falls inside the domain rather than at its edge. Everything down to and including domain resolution runs once, in a script, in front of a human; only the last two rows run on every page view.
 
 | Layer | When | Failure modes | Contract |
 |---|---|---|---|
@@ -490,7 +525,8 @@ The layers split cleanly by *when* they run. Everything above the line runs once
 | **Auth** | sync | `401` expired or revoked · `403` valid token missing a scope | **Never retried**; retrying either is pure waste. Exit with the distinguishing message: `401` → "token expired or revoked"; `403` → "token lacks employment:read". Reporting a scope gap as an expiry sends the responder to the wrong fix |
 | **Pagination** | sync | Cursor drift · repeated cursor · duplicate IDs · zero-progress page | Reject a repeated or zero-progress cursor; enforce a hard page cap; require `next_cursor === null` before writing. Any violation aborts the write, and the walk's partial result is discarded rather than committed |
 | **Schema** | sync | Malformed JSON · unexpected shape · missing field · an HTML error page where JSON was expected | The body is parsed defensively before validation. Then the two-stage parse of §D.2: a minimal `id`/`status` pre-pass over every walked record, then per-record Zod over the narrow projection. A bad record is quarantined as `RECORD_INVALID` and the walk continues. **If more than 20% of records fail, the script refuses to write** and prints the failing field paths — that rate is schema drift, not dirty data, and overwriting a good snapshot with an empty one is the failure mode through which real integrations corrupt customer data |
-| **Domain** | render | Cycles · orphans · dangling pointers | **Never throws.** Every anomaly becomes a ledger entry. The forest is always renderable |
+| **Domain · resolution** | sync | Cycles · self-managers · orphans · dangling pointers · a manager outside Remote | **Never throws.** Every anomaly becomes a ledger entry and every record keeps a place in the graph. The results are written into the snapshot, which is why reconciliation and hashing can be recorded in it at all |
+| **Domain · assembly** | render | An edge naming a node the snapshot does not contain · an empty people set | **Never throws.** Assembly is total over any `OrgSnapshot` the resolution half could have produced, so the forest is always renderable. A dangling reference here would be a defect in the writer, not in the data — the data's dangling pointers were already resolved to placeholders at sync |
 | **UI** | render | Render error · empty result | Error boundary per view · purposeful empty states that say what to do next · no layout shift |
 
 Note what the build-step boundary buys. A partial or drifted sync cannot reach a viewer, because the artifact it would have to pass through is only written on success — no atomic-swap machinery, no circuit breaker, no concurrency guard. The guarantee is enforced by the shape of the pipeline rather than by controls layered on top of it.
@@ -509,6 +545,10 @@ Both terms on the right come from the §D.2 pre-pass rather than the full projec
 
 If the two endpoints ever disagree by something other than the deleted count, the residual is a **finding about the source** to be recorded and modelled — not a check to be relaxed until it passes.
 
+**The identity above is provisional until the first complete walk measures it**, and it is settled before any code encodes it. The cost is asymmetric: `COUNT_MISMATCH` is high severity and sync-scoped, so §H.3 marks the toolbar summary whenever one exists — a formula wrong by a constant puts a permanent red marker on the operator's default view and makes the panel the false-positive generator §E.4 refuses to accept for enums.
+
+The measurement is four counts over the completed walk — deleted, archived, offboarded lifecycle stage, inactive user status — and the question is which identity holds **exactly**. Whichever does becomes the formula, `Provenance` gains exactly the count fields it needs, and the disclosed line names every term it subtracts. If none holds exactly, `COUNT_MISMATCH` ships as a known-true finding with the residual named. The residual must not be assumed to be the archived count: the list endpoint may filter on lifecycle stage rather than status, in which case no status-based identity matches at all.
+
 **What this check cannot do.** It compares walked records against a control total, and a quarantined record is still a walked record. It is therefore blind to validation outcomes by construction: if every record in the walk failed to parse, this identity would still hold exactly. That gap is closed by the 20% refusal threshold in §G.1, not here.
 
 **3 · Referential reconciliation.** Every `manager_employment_id` either resolves to a fetched employment or is reported as `MGR_DANGLING`. No pointer is left unaccounted for.
@@ -525,7 +565,22 @@ The domain layer is pure, so the same input always produces the same `OrgSnapsho
 
 Purity alone does not make *re-syncing* deterministic. Cursor pagination guarantees no stable ordering between walks, so unchanged data can arrive in a different order and serialize to a different byte sequence. **Canonical ordering is therefore part of the contract, not an optimization.** Before hashing and before writing, all four collections are sorted on a stable key — `people` and `externalManagers` by id, `edges` by `reportEmploymentId`, `issues` by `(code, employmentId)` — and serialization runs through a canonical serializer so the hash covers a defined byte sequence.
 
-With that in place, and only with it, re-running the sync over unchanged data is a no-op with a byte-identical result. Because `data/snapshot.json` is committed, this has a concrete payoff: **a git diff on the snapshot means the data changed, not that it was re-fetched.** One sort and one hash convert the reproducibility claim from an assertion into something a reviewer can check with `git diff`.
+**Forest ordering is part of the contract too, for a different reason.** The canonical sort above covers the four collections that are hashed. `Forest.roots` and `OrgNode.children` are derived at render time and therefore cannot affect `contentHash` at all — but they decide what a reader sees first, and left unstated they follow map insertion order, which is arrival order wearing a different name. That matters more here than the illustration in §H.3 suggests: 17 of the first 100 records carry no manager field of any kind, so the real dataset is expected to open on roughly **thirty roots**, not on one CEO.
+
+- **Roots** sort by kind rank — `person`, then `external`, then `unresolved` — then by `totalDescendants` descending, then by ascending employment ID.
+- **Children** sort by display name, then by ascending employment ID.
+
+Kind rank comes first so that the two synthetic kinds collect at the end of the root list instead of interleaving with genuine heads of the organization, which is the same reasoning that excludes them from `principalRootId` in §H.3.
+
+**Root order and `principalRootId` diverge deliberately.** The principal root also excludes `cycle_broken` roots, so the first root in display order can be a cycle-cut person while the card opens on someone else. Forcing agreement would mean either burying a high-severity defect at the bottom of a thirty-root list, where §F.1 requires it visible, or opening the card on that defect presented as the head of the company. The divergence is observable only on data that already carries a `CYCLE_BROKEN` finding.
+
+Name sorting uses a collator pinned to one locale rather than the viewer's, so two people opening the same URL see the same order. Because forest order sits downstream of the hash rather than upstream of it, an ICU version difference between two machines cannot change a snapshot's `contentHash` — which is precisely what makes the display-quality choice affordable here, while the hashed collections stay on a plain code-point sort.
+
+**What the hash covers, and the one thing it must not.** `contentHash` is computed over the canonically ordered snapshot with two fields neutralised: itself, which is self-referential, and `capturedAt`, which is wall-clock. Excluding the capture time is not a convenience — without it the reproducibility claim is simply false, because a second run over unchanged data would differ in that one field and produce a diff. The hash is therefore a hash of *the data*, and says nothing about when the data was fetched. That is exactly the property the claim needs.
+
+**The sync then skips the write when the hash is unchanged.** Both files are left untouched, not rewritten with identical bytes: `data/sync.log` carries its snapshot's `contentHash` so the two are a matched pair (§G.4.4), and rewriting the log alone would break the pair while producing the diff the skip exists to avoid. The retained log is the walk that produced the retained snapshot, which is the only reading under which committing it is worth anything. A re-run that changes nothing reports so on stderr and exits zero.
+
+With that in place, and only with it, re-running the sync over unchanged data is genuinely a no-op. Because `data/snapshot.json` is committed, this has a concrete payoff: **a git diff on the snapshot means the data changed, not that it was re-fetched.** One sort, one hash and one comparison convert the reproducibility claim from an assertion into something a reviewer can check with `git status`.
 
 ### G.4 Traceability
 
@@ -557,30 +612,42 @@ With that in place, and only with it, re-running the sync over unchanged data is
 The boundary is the design, and it is enforced by lint rule rather than by intention.
 
 ```
-scripts/sync.ts          the only file that performs network I/O or reads the token
+scripts/sync.ts             the only file that performs network I/O or reads the token.
+                            Ingests, composes the resolution half, writes both artifacts
+scripts/bake-fixture.ts     the same ingest and composition over fixtures/edge-cases.json
 src/
-  lib/remote-client.ts   cursor walk, retries, rate-limit headers — imported only by scripts/
-  lib/schemas.ts         Zod narrow projection (§D.2)
-  lib/snapshot-writer.ts canonical ordering, content hash, the drift refusal (§G.3)
-  lib/source.ts          selects snapshot or fixture; returns an OrgSnapshot, never a Remote shape
-  domain/                pure. imports nothing from next, react, or lib/remote-client
-    types.ts             every type in §D.4
-    normalize.ts         EmploymentRecord[] -> Person[]
-    resolve-edges.ts     the ladder in §D.6
-    break-cycles.ts      DFS colour marking, deterministic cut
-    build-forest.ts      roots, depth, pathToRoot, counts
-    reconcile.ts         the three checks + the conservation law
-    ledger.ts            DataIssue construction; the only place IssueCode is authored
-    filter.ts            search, department, and departed narrowing — F9 and §F.2
-  app/                   the single route and its server components (§H.3)
-  components/            presentational only; consume Person / OrgNode, never raw API shapes
-data/snapshot.json       client-safe, committed, ships in the bundle
-data/sync.log            redacted transcript of the walk — the evidence chain in §I.1
-fixtures/edge-cases.json the edge-case dataset — every code in §F.1
-fixtures/captured/       real sandbox responses, redacted at capture (§I.1)
+  lib/remote-client.ts      cursor walk, retries, rate-limit headers — imported only by scripts/
+  lib/schemas.ts            Zod: three response envelopes + the §D.2 narrow projection,
+                            annotated against domain/types.ts EmploymentRecord
+  lib/ingest.ts             the §D.2 two-stage parse. Raises RECORD_INVALID via ledger.
+                            Imported by both scripts, so the parse has one owner and one test
+  lib/snapshot-writer.ts    canonical ordering, content hash, the drift refusal (§G.3)
+  lib/source.ts             selects one of the two OrgSnapshots; never converts, never falls back
+  domain/                   pure. imports nothing from next, react, node, lib/, app/ or components/
+    types.ts                every type in §D.4, plus the EmploymentRecord input contract
+  — resolution half, runs under pnpm sync —
+    normalize.ts            EmploymentRecord[] -> Person[]; owns the departure predicate (§E.4)
+    resolve-edges.ts        the ladder in §D.6
+    break-cycles.ts         DFS colour marking, deterministic cut
+    reconcile.ts            the three checks + the conservation law, over people and edges
+    ledger.ts               DataIssue construction; the only place IssueCode is authored
+  — assembly half, runs per request —
+    build-forest.ts         roots, ordering, depth, pathToRoot, counts, principalRootId
+    filter.ts               search, department, and departed narrowing — F9 and §F.2
+  app/                      the single route and its server components (§H.3)
+  components/               presentational only; consume Person / OrgNode, never raw API shapes
+data/snapshot.json          client-safe OrgSnapshot, committed, ships in the bundle
+data/sync.log               redacted transcript of the walk — the evidence chain in §I.1
+fixtures/edge-cases.json    raw records. The input to every domain test (§I.1)
+fixtures/edge-cases.snapshot.json  generated from the above; what ?source=fixture serves (§D.5)
+fixtures/captured/          real sandbox responses, redacted at capture (§I.1)
 ```
 
 `domain/` importing from `lib/` or `app/` is a build error. That single rule is what allows the entire §F specification to be verified in seconds with no network and no credential, and what would let the domain layer serve another org-chart source by writing one adapter.
+
+It is also why `EmploymentRecord` is declared in `domain/types.ts` rather than inferred from the schema that parses it (§D.4): the dependency runs inward.
+
+**Only two modules run per request.** Everything else in `domain/` runs once, under `pnpm sync`, and its output is the committed artifact. That is what makes the deployed system's work bounded by the size of the organization rather than by the difficulty of its data.
 
 ### H.3 Screen topology
 
@@ -613,7 +680,9 @@ fixtures/captured/       real sandbox responses, redacted at capture (§I.1)
 
 **Header.** Company name and the capture line, in plain language, with relative age beside the absolute time. **No refresh control:** there is no runtime sync, and a control that cannot act is worse than none — the resync command appears as text in the review bar. The word *provenance* does not appear in the operator surface, and neither does any per-person history: this system holds no durable store, so `updatedAt` on a card is the only history it can honestly claim.
 
-**Toolbar.** Search and department filter compose; both narrow the tree to matching nodes **and their ancestors**, with ancestors shown for context styled distinctly from actual matches, or the operator cannot tell who matched. The department menu reads *All departments*, then each department, closed by *Unassigned* — the null-department bucket required by §F.2, which a menu that silently omitted it would contradict. The departed toggle is here rather than in the review bar, because it is a view control, not a review control.
+**Toolbar.** Search and department filter compose; both narrow the tree to matching nodes **and their ancestors**, with ancestors shown for context styled distinctly from actual matches, or the operator cannot tell who matched. The department menu reads *All departments*, then each department, closed by *Unassigned* — the null-department bucket required by §F.2, which a menu that silently omitted it would contradict. The departed toggle is here rather than in the review bar, because it is a view control, not a review control. **It defaults to off, so departed staff are shown on first paint** — the conservation claim sits in the same component, and hiding records while asserting *all accounted for* would put a filter and a completeness claim in one line saying different things. They are badged, so showing them costs nothing. Because bulk returns deleted employments where the list endpoint excludes them (§E.4), the chart therefore includes deleted records, which the README states rather than leaving a reader to infer from a total that does not match their HR system.
+
+**Match identity is returned alongside the filtered forest, never stored on a node.** The filter must distinguish a node that matched from an ancestor retained for context, and `OrgNode` is derived once during forest construction and never recomputed per render (§D.4) — putting a match flag on it would make node contents depend on transient query state, so the same forest would hold different values for different requests. The set of matched ids travels beside the forest instead, and no separate count exists — it is the size of that set. `N matching` renders only when a query or department is active: the departed toggle removes nodes rather than matching them.
 
 The summary line is the conservation claim at operator altitude — `42 people · 4 levels deep · all accounted for` — binding `Forest.maxDepth`. **It always reports the unfiltered snapshot.** A filtered forest is a `Forest` like any other, so reading the summary from the current view would make it say `12 people · all accounted for` with a filter active — turning a statement about the walk into a statement about the view, and appearing to certify twelve records when forty-two were fetched. The conservation law and `maxDepth` are properties of the sync and of the organization, not of a query. A filter's own result renders beside the summary as a match count — `12 matching` — where it cannot be mistaken for the claim.
 
@@ -621,9 +690,13 @@ Disclosing the summary expands it in place to `42 walked · 0 deleted · 42 list
 
 **Chart.** Collapsible tree, expanded to depth 2, `role="tree"` with roving tabindex per NFR 2. Parentage is drawn with connector rails — borders on the indent guide rather than paths measured between cards — and any measurement that proves necessary stays inside this component and may not introduce shift on expand. View controls are exactly three: expand all, collapse all, reset to depth 2.
 
+Roots render in the order fixed by §G.3, which is what makes depth 2 a usable default on this dataset rather than a wall of undifferentiated cards: the largest genuine subtrees lead, and the synthetic kinds collect at the end. The rule in §F.2 that caps a parent at fifteen visible children applies to the root list itself for the same reason — a forest is the child list of an imaginary parent, and the layout must not grow without bound at the top level either.
+
 The legend is required rather than decorative: the tree carries four visually distinct node kinds — person, external manager, unresolved-manager placeholder, and departed-badged person — plus dashed parentage for synthetic parents, and all of them appear in the operator's default view.
 
 **Person card.** Populated on first paint with the **principal root**: among roots where `kind === 'person'` **and `basis !== 'cycle_broken'`**, the one with the greatest `totalDescendants`, ties broken by ascending employment ID. Both exclusions are load-bearing, and for the same reason — `Forest.roots` holds nodes that are roots by defect rather than by fact. At this company size an external manager with six reports out-descends a genuine CEO, and a cycle member re-parented with a large subtree beneath it does the same; either would open the product on a data problem presented as the head of the company. Defining it by descendant count rather than by position then picks the actual head of the organization rather than whichever no-manager record sorted first, and it satisfies R2 without asking for a click.
+
+**The selection is computed during forest construction and exposed as `Forest.principalRootId`; the card reads one field.** It cannot be computed in the component, because the `cycle_broken` exclusion reads `basis`, which lives on an edge and not on a node — a component would have to join against `edges` at selection time, which puts domain logic in the view against §H.2. Copying `basis` onto every node to avoid the join would spread edge state across the whole tree for a property meaningful only at roots. Forest construction already visits every root, so deciding it there costs nothing.
 
 Manager and each direct report are links that set `?person=`, so the card is a navigation surface rather than a dead end. The data-integrity block is conditional and renders **only `scope: 'record'` findings** for that employment, leading with `suggestedAction` and carrying the code as secondary text — People Ops acts on the sentence, not the identifier.
 
@@ -649,14 +722,16 @@ Roughly fifteen tests. The whole suite runs in seconds with no network and no cr
 
 | Layer | Covers | Why here |
 |---|---|---|
-| **Unit — domain** | One test per §F.1 code · the conservation law · rung mutual exclusivity (§D.6 rule 1) · external-manager merge over shuffled input · deterministic cycle cut over shuffled input | The guarantees live in pure functions |
+| **Unit — domain** | One test per §F.1 code, five of them here and `RECORD_INVALID` with the parse in `lib/ingest.ts` · the conservation law · rung mutual exclusivity (§D.6 rule 1) · external-manager merge over shuffled input · deterministic cycle cut over shuffled input · root and child ordering over shuffled input, including that `principalRootId` is unchanged by input order (§G.3) | The guarantees live in pure functions |
 | **Contract** | Zod schemas parsed against `fixtures/captured/` — **actual sandbox responses**, redacted per the rule below, never shapes hand-written from documentation | This is the layer that catches a Remote shape change. It is the test that would have caught the `201` identity response, the `country` object, and the widened `status` enum before they became incidents |
 | **Projection shape** | The projected `country` object carries exactly `name` and `code` and no other key; no field named `*email*` appears anywhere in a serialized snapshot | Privacy (NFR 4) is a property that regresses silently. This asserts it mechanically rather than by review |
 | **Determinism** | The same records in a different arrival order produce a byte-identical `contentHash` | The cheapest guard in the suite, and it covers three mechanisms at once: canonical ordering, external-manager merging, and cycle cutting |
 
+**The fixture has two forms, and only one is authored** (§D.5). Every test here runs against the raw records; the generated sibling is what `?source=fixture` serves.
+
 **How captured fixtures are redacted.** They are committed, so they are redacted **at capture**, not before commit — once a raw body is on disk the path of least resistance is to keep it. The identity response retains `data.company` and drops `data.user` entirely, which is the only place in this repository a real person's name and email would otherwise appear. Each employment record retains every field of the §D.2 projection exactly as returned, and every other value is replaced with a type-preserving placeholder: string → `"redacted"`, number → `0`, boolean → `false`, `null` stays `null`, objects recurse, arrays keep their length. Every key and every type survives, which is all the schemas parse — so the contract test above loses none of its power, and NFR 4 holds across the repository rather than only across the artifacts the system generates.
 
-**Verifying the integration without a token.** Because the deployed system makes no API call, the fetch is not observable at runtime — a reader cannot watch it happen, and has no credential to run `pnpm sync` themselves. This is the one place where the build-step architecture is worse for a reader than a live fetch, so the evidence is committed instead of demonstrated. `fixtures/captured/` holds the sandbox responses themselves, redacted per the rule above; the contract tests parse the shipped schemas against them, so CI proves the schemas match reality rather than documentation. `data/sync.log` carries the redacted transcript of the walk — page indices, durations, rate-limit headers, record counts. And the review bar renders the walk's own counters, not merely its date: three API calls, one page, terminal cursor reached, `42 = 42 ✓`. Each of those is checkable by someone holding only the repository.
+**Verifying the integration without a token.** Because the deployed system makes no API call, the fetch is not observable at runtime — a reader cannot watch it happen, and has no credential to run `pnpm sync` themselves. This is the one place where the build-step architecture is worse for a reader than a live fetch, so the evidence is committed instead of demonstrated. `fixtures/captured/` holds the sandbox responses themselves, redacted per the rule above; the contract tests parse the shipped schemas against them, so CI proves the schemas match reality rather than documentation. `data/sync.log` carries the redacted transcript of the walk — page indices, durations, rate-limit headers, record counts. And the review bar renders the walk's own counters, not merely its date: four API calls, two pages, terminal cursor reached, and the §G.2 count identity shown as the arithmetic it performs rather than as a tick. Each of those is checkable by someone holding only the repository.
 
 ### I.2 What is deliberately not tested
 
@@ -710,7 +785,7 @@ The brief bounds this exercise and asks explicitly that it not be over-engineere
 | **Atomic swap predicate against a previous snapshot** | The build step is already atomic: nothing is written until the walk completes, and the 20% drift refusal (§G.1) covers the mass-failure case | A sync can overwrite a live artifact without a human watching |
 | **Secret-gated `/api/resync`** | The resync mechanism is `pnpm sync && git commit`, which needs no route and cannot be spent by an anonymous caller | A non-developer needs to trigger a refresh |
 | **`/api/diagnostics`** | Everything it would report — source, capture time, counts, reconciliation, API calls — is already on screen in the header and the review bar | The system runs unattended and someone must debug it without the UI |
-| **Manager inference from `manager_email`** | Adds three ledger codes (`MGR_INFERRED_BY_EMAIL`, `MGR_AMBIGUOUS`, `MGR_CONFLICT`), an email-normalization spec, and email fields in the staging projection — to recover edges the sandbox may not contain. A narrower variant was weighed and also declined: staging `manager_email` *only* to key the external-manager merge, which would close the same-name defect stated in §D.6 rule 2. It buys a fix for a case requiring two distinct externally-managed people with identical full names at a 42-person company, and costs a two-valued merge key — which is order-dependent again, and order-independence by construction is what makes the determinism test cheap. It would also weaken NFR 4 from a structural guarantee to a maintained one: *reads no email* becomes *reads one, writes none* | H0 shows records carrying a null `manager_employment_id`, a populated `manager_email`, and no other route to a parent, **above 10% of the walked set** — the point at which the chart is materially wrong rather than merely incomplete. Below that the gate stays shut. Above it, the hours come from the buffer block and then from the delivery plan's cut order: a gate that adds work must name what it displaces, or it is a wish. The merge key comes along free at that point |
+| **Manager inference from `manager_email`** | Adds three ledger codes (`MGR_INFERRED_BY_EMAIL`, `MGR_AMBIGUOUS`, `MGR_CONFLICT`), an email-normalization spec, and email fields in the staging projection — to recover edges the sandbox may not contain. A narrower variant was weighed and also declined: staging `manager_email` *only* to key the external-manager merge (§D.6 rule 2). It fixes a case needing two externally-managed people with identical full names — a rung-3 population H0 measured at zero — and costs an order-dependent merge key plus NFR 4's structural guarantee, which becomes *reads one, writes none* | H0 shows records carrying a null `manager_employment_id`, a populated `manager_email`, and no other route to a parent, **above 10% of the walked set** — the point at which the chart is materially wrong rather than merely incomplete. Below that the gate stays shut. Above it, the hours come from the buffer block first, then only by displacing scope named as the gate opens — a gate that adds work must name what it displaces. The merge key comes along free |
 | **`ENUM_UNKNOWN` ledger code** | The robustness it protects — passthrough enum parsing, so a new Remote status never quarantines a healthy record — is kept in §E.4. Only the ledger row is cut, because an unrecognized status is not a task for People Ops | The ledger gains an integration-owner view separate from the People Ops work queue |
 | **Roster table with department / country / type / status filters and sorting** | A second full view over the same model. The tree plus the F9 filter answers the same questions at a fraction of the build cost | The operator's primary question becomes "show me a list" rather than "show me the hierarchy" |
 | **100% branch coverage on `domain/`** | The named tests in §I.1 cover every guarantee in §F. A coverage threshold on top of that would buy the last few branches at the cost of most of an hour | The domain layer outlives the person who wrote it |
@@ -718,3 +793,26 @@ The brief bounds this exercise and asks explicitly that it not be over-engineere
 | **Canonical departments from `/v1/company-departments`** | Bulk already carries `department` and `department_id`. The extra call would detect naming drift between free-text and canonical values, which changes nothing about the chart | Department taxonomy becomes a thing the operator manages, not just a thing the chart displays |
 
 **The pattern across every row: each is correct for a persistent multi-tenant integration and wrong for a bounded demonstration that serves a static artifact.** They are omitted because of what this system is, not because of what they cost.
+
+---
+
+## Open against this document
+
+Items this specification does not yet determine, each with what closes it. They are listed because an unrecorded gap is indistinguishable from an oversight, and because two of them block work that is already scheduled.
+
+| # | Open | Closed by |
+|---|---|---|
+| 1 | **The §G.2 count identity.** `listTotalCount === recordCount − deletedCount` is provisional. H0 sampled one page of two, where `deletedCount` was 0 while 7 records were `archived` and 13 carried an offboarded lifecycle stage | The first complete walk. Four counts are measured — deleted, archived, offboarded lifecycle stage, inactive user status — and whichever identity holds *exactly* is written into §G.2 and §E.4. **Blocks `reconcile.ts`**, which encodes the formula |
+| 2 | **Four illustrative count strings** in §G.2 and §H.3 still read at the engagement brief's ~42 rather than this company's 191 — `42 walked · 0 deleted · 42 listed ✓ · 42 placed · 0 quarantined`, and `42 people · 4 levels deep · all accounted for` | The same walk. Their contents depend on which identity item 1 settles, so rewriting them earlier would mean inventing numbers |
+| 3 | **The §D.2 pre-pass may narrow.** It currently reads two fields non-fatally that the settled identity may not need | Item 1. Whichever counts the identity names stay; the others come out |
+
+---
+
+## Revision history
+
+| Version | Date | Change |
+|---|---|---|
+| **1.3** | 2026-08-22 | **The domain runs on both sides of the snapshot, not after it.** §G.1 placed graph resolution at render while §G.3 sorted `edges` and `issues` before writing; the two could not both hold, because `countReconciled` and `contentHash` are fields *of* the snapshot. Resolution moved to sync and assembly stayed at render, propagating through the system diagram, §G.1, §H.2 and §D.2. `contentHash` now excludes `capturedAt`, without which the reproducibility claim was false, and an unchanged hash skips both writes. The §D.2 parse moved to `lib/ingest.ts` so it has one owner and one test. The served fixture is generated from raw records rather than authored. |
+| **1.2** | 2026-08-22 | Closed eleven gaps found on a pre-execution review. Four were specification gaps no type could supply: `Forest.principalRootId`, forest and child ordering in §G.3, the departure predicate's owner, and match identity as a set rather than a count. Two implicit defaults stated — the departed toggle is off, so deleted records are visible. The §G.2 count identity marked provisional. |
+| **1.1** | 2026-08-22 | Amended after the contract spike. Real company identity throughout — *CatarinaFDE Demo2*, 191 employments, not the brief's illustrative *Acme Sandbox Corp* at ~42 — and the four-call budget that follows. Two §E.4 contract corrections: `termination_date` is present on bulk records, and `manager_id` exists but is a `user_id` carrying one distinct value across the seed. |
+| **1.0** | 2026-08-21 | Initial specification. |

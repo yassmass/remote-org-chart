@@ -1,6 +1,6 @@
 # Org Chart — Delivery Plan
 
-**Version:** 1.1 · amended 2026-08-22 after H0 and the P1b deployment. Revision history at the foot of this document. Tracks `build.md` 1.1.
+**Version:** 1.3 · amended 2026-08-22 during P1a. Revision history at the foot of this document. Tracks `build.md` 1.3.
 
 **Companion to `build.md`.** That document is the single source of truth for *what the system is*. This one is the single source of truth for *what gets written, in what order, and how you know it is finished*.
 
@@ -30,6 +30,25 @@ Nothing downstream may be written until these four facts are established. Budget
 
 Record all six answers in the README. They are the empirical basis for decisions the reviewer will ask about.
 
+### 1.1 H0 outcome — recorded 2026-08-22
+
+All four gates pass. No re-plan of `build.md` §E was required. Fixtures written and redacted at capture: `fixtures/captured/identity.json`, `employments-list.json`, `employments-bulk.json` — one bulk page, 100 of 191 records, since the full walk is P1a's job. The §7 item 2 secret and email scan returns clean across all three.
+
+| # | Answer |
+|---|---|
+| G1 | **PASS.** `200` — accepted as any `2xx` per `build.md` §E.4. `company.id = 5ca666ff-fcd7-4cb0-a408-01909e5eb5b1`, `company.name = "CatarinaFDE Demo2"` |
+| G2 | **PASS.** `200` on `GET /v1/employments/bulk`. The token carries `employment:read` or an enclosing scope |
+| G3 | **PASS.** `200` on the control total. `total_count = 191` |
+| G4 | **PASS.** 83 of 100 sampled records carry `manager_employment_id`. Rung 1 is well exercised by real data |
+| Q1 · email inference | **0%, and cut stays shut.** No record carries a populated `manager_email` with a null `manager_employment_id` at all — the field is never the sole route to a parent in this seed. The same 83 records carry `manager`, `manager_email`, and `manager_employment_id` together |
+| Q2 · count reconciliation | **Inconclusive at H0 by design**, and carried into P1a. One page of two, `next_cursor` non-null, so `recordCount` was a partial walk. It is the first thing evaluated once the full walk exists |
+
+**Distributions on the sampled page**, which P1a's count-identity measurement needs as its starting point: `status` ∈ {active 92, archived 7, created 1} · `user_status` ∈ {active 93, inactive 7} · `type` ∈ {global_payroll_employee 93, employee 7} · `lifecycle_stage` ∈ {onboarded 86, offboarded 13, employment_creation 1}. No `deleted` status appears, so `deletedCount` is 0 so far while 7 records are archived and 13 are offboarded — which is exactly why `build.md` §G.2 now treats the deleted-only identity as provisional.
+
+**What real data exercises, and what only the fixture can.** 17 of 100 are rung-4 roots and 0 are rung 3, so `MGR_EXTERNAL` may have no real instance and its entire demonstration burden falls on `fixtures/edge-cases.json` and the `?source=fixture` selector. 4 records reference an off-page manager across 2 distinct missing IDs — sampling noise from one page of 191, not `MGR_DANGLING` signal. 7 null `job_title` and 7 null `department` make the critical-null marker and the Unassigned bucket live on real data. 1 departed record has direct reports, giving the toggle's never-orphan rule a real instance. Also 0 duplicate full names, 0 null `updated_at`, 0 null `short_id`, 7 null `country`, 15 distinct departments, 0 duplicate employment IDs, and `files` null on all 100.
+
+**Two contract corrections**, both written into `build.md` §E.4 rather than held here: `termination_date` is present on bulk records and is the weakest of the four departure signals, and `manager_id` exists, is a `user_id`, and carries exactly one distinct value across the entire sampled page.
+
 ---
 
 ## 2. File manifest
@@ -40,48 +59,54 @@ Every file, its governing section, and its public surface. No file outside this 
 
 | File | § | Exports |
 |---|---|---|
-| `scripts/sync.ts` | §E.1, §G.1 | `main()`. Reads `REMOTE_API_TOKEN`, asserts the `ra_test_` prefix, orders the three calls, writes `data/snapshot.json` and `data/sync.log`, exits non-zero with a distinguishing message on `401` / `403` / incomplete walk |
-| `src/lib/remote-client.ts` | §E.1, §E.4, §G.1 | `fetchIdentity()`, `fetchControlTotal()`, `walkBulk()`. The only file performing network I/O. Owns timeouts, the two retries, `x-ratelimit-reset` **as a duration**, and the cursor guards |
-| `src/lib/schemas.ts` | §D.2, §E.4 | `PrePassSchema` (`id`, `status`), `EmploymentProjection`, `EmploymentRecord`. Enum-valued fields parse as `z.string()`; `country` projects exactly `name` and `alpha_2_code` |
-| `src/lib/snapshot-writer.ts` | §G.3 | `serialize(snapshot)`. Canonical sort of all four collections, canonical serialization, `contentHash`. Refuses to write above the 20% parse-failure rate |
+| `scripts/sync.ts` | §D.2, §E.1, §G.1 | `main()`. Reads `REMOTE_API_TOKEN`, asserts the `ra_test_` prefix, orders the three calls, runs `ingest()`, composes the resolution half of the domain, writes `data/snapshot.json` and `data/sync.log` — or skips both when `contentHash` is unchanged (§G.3). Exits non-zero with a distinguishing message on `401` / `403` / incomplete walk. It is the one file permitted to import both `lib/` and `domain/` |
+| `scripts/bake-fixture.ts` | §D.5, §I.1 | `main()`. The same `ingest()` and composition over `fixtures/edge-cases.json`, writing `fixtures/edge-cases.snapshot.json`. No network, no token. Exists so the served fixture is generated rather than authored — see §5 |
+| `src/lib/ingest.ts` | §D.2, §G.1 | `ingest(raw) → { records, issues }`. The two-stage parse: the `id`/`status` pre-pass over every element, then `EmploymentProjection` per record, raising `RECORD_INVALID` through `ledger.issue()` for either failure. **Both scripts import it, so the parse has one owner and one test.** It cannot live in `domain/` — it needs the Zod schemas — and it must not live inside a script's `main()`, because §I.1 requires a test for every §F.1 code and code reachable only by running a script has no test layer |
+| `src/lib/remote-client.ts` | §E.1, §E.4, §G.1 | `fetchIdentity(config)`, `fetchControlTotal(config)`, `walkBulk(config, companyId)`, plus `RemoteApiError` and `SyncLogEntry`. The only file performing network I/O. Owns timeouts, the two retries with full jitter, `x-ratelimit-reset` **as a duration**, and the three cursor guards. Reads no environment variable: config arrives as an argument, which is what keeps NFR 3 a property of the code. `RemoteApiError.kind` is what lets §G.1's Auth row produce a *distinguishing* exit message; `SyncLogEntry` carries duration and rate-limit headers, which are observable only here while the file write belongs to `scripts/` |
+| `src/lib/schemas.ts` | §D.2, §E.4, §I.1 | `PrePassSchema`, `EmploymentProjection`, and the three response envelopes `IdentitySchema`, `ControlTotalSchema`, `BulkPageSchema` — the envelopes are required by §I.1's contract layer, which parses the shipped schemas against every file in `fixtures/captured/` and names the `201` identity response as the incident it would have caught. Enum-valued fields parse as `z.string()`; `country` projects exactly `name` and `alpha_2_code`. The `EmploymentRecord` **type** now lives in `domain/types.ts` and this file's projection is annotated against it (§H.2) |
+| `src/lib/snapshot-writer.ts` | §G.3 | `serialize(snapshot)`. Canonical sort of all four collections, canonical serialization, `contentHash` over the data with `capturedAt` and the hash field itself excluded. Returns a discriminated result rather than throwing, because §G.1's refusal above the 20% parse-failure rate has to print the failing field paths |
 
 ### Domain — pure, no I/O, no framework import
 
-| File | § | Exports |
-|---|---|---|
-| `src/domain/normalize.ts` | §D.2, §F.2 | `normalize(records) → { people, quarantined }` |
-| `src/domain/resolve-edges.ts` | §D.6 | `resolveEdges(people) → { edges, externalManagers, unresolvedManagers, issues }`. The four-rung ladder, mutually exclusive by presence of the manager ID |
-| `src/domain/break-cycles.ts` | §D.6 rule 3 | `breakCycles(edges) → { edges, issues }`. Ascending-ID iteration; enumerate the member set, then cut the lowest-ID child. The cut edge is rewritten to `parentId: null, basis: 'cycle_broken'` — never `'none'` |
-| `src/domain/build-forest.ts` | §D.4 | `buildForest(people, edges, synthetics) → Forest`. Computes `depth`, `pathToRoot`, `directReports`, `totalDescendants`, `maxDepth` in one pass |
-| `src/domain/reconcile.ts` | §G.2 | `reconcile(provenance, forest, quarantined) → { provenance, issues }`. The three checks and the conservation law |
-| `src/domain/ledger.ts` | §F.1, §3 below | `issue(code, ctx) → DataIssue`. **The only file that authors an `IssueCode`, a `scope`, a `severity`, a `suggestedOwner`, or a `suggestedAction`** — all five are fixed per code by §3 and never decided per instance |
-| `src/domain/filter.ts` | F9, §F.2, §H.3 | `filterForest(forest, { q, dept, hideDeparted }) → { forest, matchCount }`. Retains ancestors of matches and marks them as context rather than match. Returns the count separately because the toolbar summary reads the **unfiltered** forest — a conservation claim bound to a filtered view would be false |
-| `src/domain/types.ts` | §D.4 | Every type in §D.4, verbatim |
+Split by which side of the snapshot the module runs on (`build.md` §H.2). The resolution half is composed by `scripts/sync.ts` and its output is written into the artifact; only the assembly half runs per request.
+
+| File | Half | § | Exports |
+|---|---|---|---|
+| `src/domain/types.ts` | both | §D.2, §D.4 | Every type in §D.4, verbatim, plus the `EmploymentRecord` input contract. It lives here because `normalize()` consumes it and `domain/` may not import `lib/`; `lib/schemas.ts` is annotated against it, so parser and domain cannot drift without failing to compile |
+| `src/domain/ledger.ts` | resolution | §F.1, §3 below | `issue(code, ctx) → DataIssue`. **The only file that authors an `IssueCode`, a `scope`, a `severity`, a `suggestedOwner`, or a `suggestedAction`** — all five are fixed per code by §3 and never decided per instance. `ctx` carries only the three per-instance fields, and `employmentId` / `displayName` are required-but-nullable so a sync-scoped finding must state that no person is attached rather than omit it |
+| `src/domain/normalize.ts` | resolution | §D.2, §F.2, §E.4 | `normalize(records: EmploymentRecord[]) → Person[]`, and `isDeparted(person) → boolean`. **The two-stage parse is not here** — it needs the Zod schemas, which `build.md` §H.2 puts in `lib/`, and `domain/` may not import `lib/`. It lives in `lib/ingest.ts`, so `normalize` receives already-valid records and cannot fail. The departure rule is a predicate and never a stored field, per `build.md` §E.4 |
+| `src/domain/resolve-edges.ts` | resolution | §D.6 | `resolveEdges(people) → { edges, externalManagers, unresolvedManagers, issues }`. The four-rung ladder, mutually exclusive by presence of the manager ID |
+| `src/domain/break-cycles.ts` | resolution | §D.6 rule 3 | `breakCycles(edges) → { edges, issues }`. Ascending-ID iteration; enumerate the member set, then cut the lowest-ID child. The cut edge is rewritten to `parentId: null, basis: 'cycle_broken'` — never `'none'` |
+| `src/domain/reconcile.ts` | resolution | §G.2 | `reconcile(provenance, people, edges, quarantined) → { provenance, issues }`. The three checks and the conservation law. It takes `people` and `edges` rather than a `Forest`, because **no forest exists at sync time** — and it does not need one: `nodesPlaced` is a property of the people the resolver placed, not of how they are later arranged for display |
+| `src/domain/build-forest.ts` | assembly | §D.4, §G.3, §H.3 | `buildForest(snapshot) → Forest`. Computes `depth`, `pathToRoot`, `directReports`, `totalDescendants`, `maxDepth` in one pass, then applies the §G.3 ordering — roots by kind rank, `totalDescendants` descending, ascending ID; children by display name then ID — and resolves `principalRootId` from the roots it has already visited. The `basis !== 'cycle_broken'` exclusion is applied **here**, where `edges` are in scope; no component may join against `edges` to recover it |
+| `src/domain/filter.ts` | assembly | F9, §F.2, §H.3 | `filterForest(forest, { q, dept, hideDeparted }) → { forest, matchedIds: Set<string> }`. Retains ancestors of matches; the set is what lets the tree style a match differently from an ancestor kept for context, without putting transient query state on `OrgNode`. No `matchCount` field — it is `matchedIds.size`. `hideDeparted` removes nodes rather than matching them, so it contributes nothing to the set. Consumes `isDeparted` from `normalize.ts`. The toolbar summary still reads the **unfiltered** forest, because a conservation claim bound to a filtered view would be false |
 
 ### Application
 
 | File | § | Notes |
 |---|---|---|
-| `src/lib/source.ts` | §D.5 | `getSnapshot(source) → OrgSnapshot`. Static imports of both JSON files. Never falls back to the fixture |
+| `src/lib/source.ts` | §D.5 | `getSnapshot(source) → OrgSnapshot`. Static imports of the two committed `OrgSnapshot`s — `data/snapshot.json` and the generated `fixtures/edge-cases.snapshot.json`. It selects; it never converts and never falls back to the fixture |
 | `src/app/layout.tsx` | §D.5, NFR 4 | Theme tokens, `X-Robots-Tag: noindex`, the amber demo band and the `<title>` swap when `source=fixture` |
-| `src/app/page.tsx` | §H.3 | The single route. Reads all six search params, resolves the snapshot, runs the domain pipeline, renders |
+| `src/app/page.tsx` | §H.3 | The single route. Reads all six search params, resolves the snapshot, **assembles the forest and applies the filters**, renders. It runs `buildForest` and `filterForest` and nothing else from the domain — resolution already happened at sync and its results are in the snapshot |
 | `src/components/Header.tsx` | §H.3 | Company name and capture line. No refresh control |
 | `src/components/Toolbar.tsx` | §H.3 | Search, department menu, departed toggle, summary line with disclosure |
 | `src/components/Tree.tsx` | F3, NFR 2 | `role="tree"`, roving tabindex, arrow keys, connector rails, three view controls, legend |
-| `src/components/PersonCard.tsx` | F4, §H.3 | Principal root on first paint, selected among `kind === 'person'` roots only. Renders `scope: 'record'` findings only. Branches to the reduced synthetic card when `kind !== 'person'`: display name, kind label, attached reports, and the `MGR_EXTERNAL` / `MGR_DANGLING` finding — other fields omitted, not em-dashed |
+| `src/components/PersonCard.tsx` | F4, §H.3 | Principal root on first paint, read from `Forest.principalRootId` — the component selects nothing and joins nothing. Renders `scope: 'record'` findings only. Branches to the reduced synthetic card when `kind !== 'person'`: display name, kind label, attached reports, and the `MGR_EXTERNAL` / `MGR_DANGLING` finding — other fields omitted, not em-dashed |
 | `src/components/ReviewBar.tsx` | §H.3 | `<details>`-driven. Source selector, ledger by scope then code, reconciliation, provenance counters, log excerpt, and the *verifying without a token* pointer to `fixtures/captured/` and `pnpm test` |
 
 ### Data and tests
 
 | Path | § | Notes |
 |---|---|---|
-| `data/snapshot.json` | §D.5 | Committed. Regenerated only by `pnpm sync` |
-| `data/sync.log` | §I.1 | Committed, redacted. The transcript of the walk |
-| `fixtures/edge-cases.json` | §5 below | Committed. Exercises all six codes |
-| `fixtures/captured/*.json` | §I.1 | Raw H0 responses. Input to the contract tests |
-| `src/domain/__tests__/*.test.ts` | §I.1 | One file per domain module — the six code tests, conservation, rung exclusivity, and the two shuffle assertions |
+| `data/snapshot.json` | §D.5 | Committed `OrgSnapshot`. Regenerated only by `pnpm sync`, and only when its `contentHash` changes |
+| `data/sync.log` | §I.1 | Committed, redacted. The transcript of the walk, carrying that snapshot's `contentHash` so the two are a matched pair |
+| `fixtures/edge-cases.json` | §5 below | Committed **raw records**. Exercises all six codes, and is the input to every domain test |
+| `fixtures/edge-cases.snapshot.json` | §D.5, §5 | Committed but **generated** by `pnpm bake:fixture`. What `?source=fixture` serves. Never hand-edited — it is the resolver's output, and authoring it would make the fixture assert the resolver instead of exercising it |
+| `fixtures/captured/*.json` | §I.1 | Raw H0 responses, redacted at capture. Input to the contract tests |
+| `src/domain/__tests__/*.test.ts` | §I.1 | One file per domain module — the six code tests, conservation, rung exclusivity, and the **three** shuffle assertions: external-manager merge, deterministic cycle cut, and root/child ordering including an unchanged `principalRootId` |
 | `src/lib/__tests__/schemas.contract.test.ts` | §I.1 | The contract layer: `schemas.ts` parsed against every file in `fixtures/captured/`. Lives beside `lib/` because that is where the schemas live |
 | `src/lib/__tests__/projection.test.ts` | §I.1, NFR 4 | The `country` two-leaf assertion, and the no-`/email/i`-key assertion over a serialized snapshot |
+| `src/lib/__tests__/snapshot-writer.test.ts` | §I.1, §G.3 | The `contentHash` determinism assertion — same records, different arrival order, byte-identical hash. It lives here because it exercises `snapshot-writer.ts`; P3 requires it and no file on this manifest previously owned it |
 
 ### Toolchain — governed by P1b
 
@@ -92,9 +117,13 @@ Every file, its governing section, and its public surface. No file outside this 
 
 ### Scripts
 
-`pnpm dev` · `pnpm build` · `pnpm test` · `pnpm sync` · `pnpm lint` (carries the boundary rules above) · `pnpm typecheck`
+`pnpm dev` · `pnpm build` · `pnpm test` · `pnpm sync` · `pnpm bake:fixture` · `pnpm lint` (carries the boundary rules above) · `pnpm typecheck`
 
 `typecheck` is separate from `build` because NFR 6 names two mechanisms — the compiler and the lint boundary — and only one of them had a command that could be run on its own.
+
+`bake:fixture` runs as part of `test`, so a `fixtures/edge-cases.snapshot.json` that has fallen behind its source fails CI rather than being noticed by eye. It needs no token and no network, which is why it can.
+
+`sync` runs under `tsx --env-file-if-exists=.env.sync`. The `-if-exists` variant is deliberate: with a missing file, plain `--env-file` aborts on Node's own `ENOENT` before the script runs, replacing the script's own message about creating `.env.sync` from the template with a stack trace about a path.
 
 ---
 
@@ -122,23 +151,29 @@ Each phase's definition of done is a **checkable assertion**, not a judgement. A
 | Phase | Block | Builds | Done when |
 |---|---|---|---|
 | **P0** ✅ | H0 | — | **Done 2026-08-22.** All four gates in §1 answered (§1.1); `fixtures/captured/` holds a redacted identity, list, and bulk response; checklist item 2 in §7 passes against `fixtures/` — it is re-run over `data/` too once P1a creates it |
-| **P1a** | H1 | `schemas.ts`, `remote-client.ts`, `snapshot-writer.ts`, `scripts/sync.ts` | `pnpm sync` writes a `data/snapshot.json` whose `provenance.terminalCursorReached` is `true`, `apiCallCount === 2 + ceil(N/100)` (expected **4**, or 5 if bulk returns more than 200 records — build.md §E.1), and which contains no key matching `/email/i`. **Plus the check H0 left open:** `listTotalCount === recordCount − deletedCount` is evaluated against the completed walk and its result — reconciled, or a `COUNT_MISMATCH` with the residual named — is recorded in `progress-tracker.md` before P2a starts |
+| **P1a** | H1 | `schemas.ts`, `ingest.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`, `resolve-edges.ts`, `break-cycles.ts`, `reconcile.ts`, `snapshot-writer.ts`, `scripts/sync.ts` | `pnpm sync` writes a complete `OrgSnapshot` — **all four collections populated**, not provenance alone — whose `provenance.terminalCursorReached` is `true`, whose `apiCallCount === 2 + ceil(N/100)` (expected **4**, or 5 if bulk returns more than 200 records — build.md §E.1), and which contains no key matching `/email/i`. A second `pnpm sync` over unchanged data produces no `git diff` (§G.3). **Plus the check H0 left open, which is a gate rather than a note:** the completed walk yields four counts — `deleted`, `archived`, offboarded lifecycle stage, and inactive user status — and the identity that holds **exactly** against `listTotalCount` is determined from them. That identity is then written into `build.md` §G.2 and §E.4, `Provenance` gains exactly the count fields it requires and no others, and the §D.2 pre-pass narrows to the fields it names. If no identity holds exactly, `COUNT_MISMATCH` ships as a known-true finding with the residual named |
 | **P1b** ✅ | H1 | Next scaffold, `layout.tsx`, a placeholder `page.tsx`, **`tsconfig.json` and `eslint.config.mjs` hardening** | Live at **https://remote-org-chart.vercel.app** — `200`, served by Vercel, `http` 308s to `https`, built with **zero environment variables configured**, which is the assertion this phase exists to prove. Toolchain: `pnpm lint` and `pnpm typecheck` both pass, and each boundary in §2 is verified by a probe file that fails on it rather than by inspection. Two `layout.tsx` obligations remain open and move to P4a: the `X-Robots-Tag: noindex` header (NFR 4) and the document title, still the scaffold's *Create Next App* |
-| **P2a** | H2 | `types.ts`, `normalize.ts`, `resolve-edges.ts`, `break-cycles.ts`, `build-forest.ts`, `reconcile.ts`, `ledger.ts`, `filter.ts` | `pnpm lint` passes with the `domain/` boundary rule active, and the pipeline returns a `Forest` from the real snapshot |
+| **P2a** | H2 | `build-forest.ts`, `filter.ts` | `pnpm lint` passes with the `domain/` boundary rule active, and `buildForest` returns a `Forest` from the real `data/snapshot.json` with `principalRootId` naming a person root |
 | **P2b** | H2 | README §§ architecture, scope decisions, out-of-scope table | The out-of-scope table is complete and each row carries its build-it-when condition |
-| **P3** | H3 | `fixtures/edge-cases.json`, all domain tests, the contract and projection suites | `pnpm test` green. Six code tests, the conservation assertion, the two projection assertions, the determinism assertion, the two shuffle assertions, and the contract parse over every file in `fixtures/captured/` all present and named |
+| **P3** | H3 | `fixtures/edge-cases.json`, `scripts/bake-fixture.ts`, all domain tests, the contract and projection suites | `pnpm test` green. Six code tests, the conservation assertion, the two projection assertions, the determinism assertion, the **three** shuffle assertions, and the contract parse over every file in `fixtures/captured/` all present and named. `pnpm bake:fixture` regenerates `fixtures/edge-cases.snapshot.json` with no diff on a second run — the bake lives here rather than in P2a because its input is authored here |
 | **P4a** | H4 | `source.ts`, `page.tsx`, `Header`, `Toolbar`, `Tree` | The deployed URL renders the real chart at depth 2 with a working keyboard traversal from root to leaf |
 | **P4b** | H4 | `PersonCard`, `ReviewBar` | Every URL parameter in §H.3 round-trips: set it, copy the URL, open in a fresh tab, identical view |
 | **P5** | H5 | buffer | Reserved for P4 overrun. Consumed by the cut order in §6 if it is not enough |
 | **P6** | H6 | README completion | A clean clone with no `.env` runs `pnpm i && pnpm dev` and renders the full chart |
 
-**Dependency note:** P2a depends only on `types.ts` and the fixture shape, not on P1a completing. The `403` contingency in that note is now moot — G2 passed, so §E needs no re-plan — but the independence still holds and is worth keeping, because it is what lets domain work start before a full walk exists.
+**Dependency note, replacing the one this document carried through 1.2.** That note said P2a depends only on `types.ts` and the fixture shape, "not on P1a completing" — which was true only while the domain was believed to run entirely at render. It does not: five of its eight modules resolve the graph at sync time, and `pnpm sync` cannot write a complete `OrgSnapshot` without them. **The dependency therefore runs the other way.** The resolution half moves into P1a, where it is a prerequisite for that phase's own definition of done, and P2a keeps only the two modules that run per request.
+
+What survives from the old note is the part that mattered: the domain remains testable without a walk. `resolve-edges`, `break-cycles` and `reconcile` are pure functions over `fixtures/edge-cases.json`, so P3 can assert every §F.1 code with no token — the token is needed to produce `data/snapshot.json`, never to verify the rules that shaped it.
+
+**What still gates P2a** is the §G.2 count identity, because `reconcile.ts` encodes the formula. That module is now in P1a, so the gate is internal to the phase rather than between two of them: the walk runs, the four counts are measured, the identity is settled, and only then is `reconcile.ts` written against it.
 
 ---
 
 ## 5. Fixture manifest
 
 `fixtures/edge-cases.json` is authored before the resolver (§D.6 rule 4) and is the dataset every test asserts against. Each record exists to exercise one named thing.
+
+**It holds raw records and is never edited into its resolved form** (`build.md` §D.5). `pnpm bake:fixture` generates `fixtures/edge-cases.snapshot.json` from it, and CI runs the same command, so a stale bake fails the build. The two rows below that trigger `RECORD_INVALID` are exercised by `ingest()`, which both scripts call.
 
 | Record | Exercises |
 |---|---|
@@ -197,12 +232,14 @@ If the cut order reaches item 6 and time is still short, the correct move is to 
 | 2 | `grep -rEi 'ra_test\|ra_live\|[a-z0-9._%+-]+@[a-z0-9.-]+' data/ fixtures/` returns nothing. **The whole `fixtures/` tree, `captured/` included** — a scan that skips the one directory holding real API responses is not a check |
 | 3 | Fresh clone, no `.env.sync`: `pnpm i && pnpm dev` renders the full chart |
 | 4 | `pnpm test` green from that clone, with no network |
-| 5 | `pnpm sync` re-run over unchanged data produces no `git diff` (§G.3) |
+| 5 | `pnpm sync` re-run over unchanged data produces no `git diff` — the second run recomputes `contentHash`, finds it unchanged, and skips both writes (§G.3) |
+| 5a | `pnpm bake:fixture` re-run produces no `git diff`, which is what proves `fixtures/edge-cases.snapshot.json` is the current output of the resolver rather than a file that once was |
 | 6 | Every §H.3 URL parameter round-trips through copy-paste in a fresh tab, **including `?person=` combined with a filter that excludes them** — the card still renders, and says it is outside the filter |
 | 7 | Keyboard-only traversal from root to deepest leaf and into the review bar |
 | 8 | `?source=fixture` shows the amber band, the text label, and the changed page title |
-| 9 | README carries: setup, architecture, the six H0 answers (§1.1), verification without a token, assumptions, limitations, and the out-of-scope table. The company is named as **CatarinaFDE Demo2**, with the brief's *Acme Sandbox Corp* identified as illustrative rather than what the token resolves to |
-| 10 | Submission email: repo link, deployed link, tech choices, and the documentation findings — §E.2's guide-versus-schema contradiction, now backed by two committed real responses, and the `manager_id` / `user_id` trap from build.md §E.4 |
+| 9 | README carries: setup, architecture, the six H0 answers (§1.1), verification without a token, assumptions, limitations, and the out-of-scope table. The company is named as **CatarinaFDE Demo2**, with the brief's *Acme Sandbox Corp* identified as illustrative rather than what the token resolves to. It also states two behaviours a reader would otherwise have to infer: departed staff are shown by default, and because bulk returns deleted employments where the list endpoint excludes them, the chart includes deleted records |
+| 9a | **The README opens with the build-step decision and the evidence that the fetch happened.** The brief's first requirement is *fetch data from the API*, and a static snapshot invites the question of whether it was ever fetched. The answer already exists — `fixtures/captured/` parsed by the shipped schemas in CI, the redacted `data/sync.log`, and the walk's own counters in the review bar — but an answer placed after the architecture section is an answer the reviewer reaches only if they keep reading. It leads |
+| 10 | Submission email: repo link, deployed link, tech choices, and the documentation findings — §E.2's guide-versus-schema contradiction, now backed by two committed real responses, and the `manager_id` / `user_id` trap from build.md §E.4. **It states the build-step architecture in its first paragraph**, with the consequence that makes it a feature rather than a shortcut: the URL renders identically after the sandbox token is revoked on day 14 |
 | 11 | No `.env.sync` in the tracked tree, and no full token value anywhere in history: `git grep -I -E 'ra_(test\|live)_[0-9a-zA-Z]{8,}' $(git rev-list --all)` returns nothing |
 
 ---
@@ -211,7 +248,7 @@ If the cut order reaches item 6 and time is still short, the correct move is to 
 
 | Version | Date | Change |
 |---|---|---|
-| **1.1** | 2026-08-22 | H0 outcome recorded in §1.1 — all four gates pass, no §E re-plan, email-inference cut confirmed shut at 0%. Count reconciliation carried forward into P1a's definition of done, which is where it first becomes evaluable. P0 and P1b marked done; P1b's deployment is live at `https://remote-org-chart.vercel.app` with zero environment variables, and the two `layout.tsx` obligations it did not cover — `X-Robots-Tag` and the document title — are named against P4a rather than left implied. §3 owner strings follow build.md 1.1 from `Acme People Ops` to `People Ops`. §7 gains a token-history assertion and corrects `.env` to `.env.sync`. |
+| **1.3** | 2026-08-22 | Tracks `build.md` 1.3. The domain runs on both sides of the snapshot, so §2's domain table splits into a resolution half composed by `scripts/sync.ts` and an assembly half that runs per request; P1a gains the five resolution modules and P2a keeps two. Four signatures corrected against what `build.md` determines: `reconcile` takes `people` and `edges` since no forest exists at sync, `normalize` takes validated records, `buildForest` takes the snapshot, and `page.tsx` assembles rather than running the whole pipeline. The §D.2 parse given its own module, `lib/ingest.ts`, so it has one owner and one test. New: `scripts/bake-fixture.ts`, `fixtures/edge-cases.snapshot.json`, `pnpm bake:fixture`, checklist item 5a. |
+| **1.2** | 2026-08-22 | Tracks `build.md` 1.2. §1.1 added, holding the six H0 answers, the sampled distributions, and what real data does and does not exercise. §2 instantiates the four `build.md` 1.2 decisions: `isDeparted` exported from `normalize.ts`; §G.3 ordering and `principalRootId` resolved in `build-forest.ts`; `filterForest` returning `matchedIds`; and `PersonCard` reading the principal root rather than selecting it. P1a's count check promoted from a note to a gate. |
+| **1.1** | 2026-08-22 | H0 outcome recorded in §1.1 — all four gates pass, no §E re-plan, email-inference cut confirmed shut at 0%. Count reconciliation carried into P1a's definition of done. P0 and P1b marked done; the deployment is live with zero environment variables. |
 | **1.0** | 2026-08-21 | Initial delivery plan against `build.md` 1.0. |
-
-**On the rule between the documents.** Every change above either records a measurement or instantiates a decision `build.md` 1.1 now carries. The two contract corrections H0 produced — `termination_date`, `manager_id` — were written into `build.md` §E.4 first and are only referenced here, which is the boundary this plan is supposed to hold.
