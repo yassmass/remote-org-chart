@@ -83,9 +83,18 @@ Every file, its governing section, and its public surface. No file outside this 
 | `src/lib/__tests__/schemas.contract.test.ts` | §I.1 | The contract layer: `schemas.ts` parsed against every file in `fixtures/captured/`. Lives beside `lib/` because that is where the schemas live |
 | `src/lib/__tests__/projection.test.ts` | §I.1, NFR 4 | The `country` two-leaf assertion, and the no-`/email/i`-key assertion over a serialized snapshot |
 
+### Toolchain — governed by P1b
+
+| File | § | Enforces |
+|---|---|---|
+| `tsconfig.json` | NFR 6 | `strict`, plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noPropertyAccessFromIndexSignature`, `noFallthroughCasesInSwitch`, `noImplicitReturns`, `noUnusedLocals`, `noUnusedParameters`. Tests are inside `include`, because the §F guarantees live there |
+| `eslint.config.mjs` | §H.2, NFR 3, NFR 6 | Three boundaries as lint errors, not conventions: `domain/` may not import a framework, a Node builtin, or `lib/`/`app/`/`components/`; nothing under `src/` may read `process.env`; nothing under `app/` or `components/` may import `remote-client`. Plus `no-explicit-any`, `no-non-null-assertion`, and `switch-exhaustiveness-check` over the closed `IssueCode` and `basis` unions |
+
 ### Scripts
 
-`pnpm dev` · `pnpm build` · `pnpm test` · `pnpm sync` · `pnpm lint` (carries the `domain/` import-boundary rule from §H.2)
+`pnpm dev` · `pnpm build` · `pnpm test` · `pnpm sync` · `pnpm lint` (carries the boundary rules above) · `pnpm typecheck`
+
+`typecheck` is separate from `build` because NFR 6 names two mechanisms — the compiler and the lint boundary — and only one of them had a command that could be run on its own.
 
 ---
 
@@ -114,7 +123,7 @@ Each phase's definition of done is a **checkable assertion**, not a judgement. A
 |---|---|---|---|
 | **P0** ✅ | H0 | — | **Done 2026-08-22.** All four gates in §1 answered (§1.1); `fixtures/captured/` holds a redacted identity, list, and bulk response; checklist item 2 in §7 passes against `fixtures/` — it is re-run over `data/` too once P1a creates it |
 | **P1a** | H1 | `schemas.ts`, `remote-client.ts`, `snapshot-writer.ts`, `scripts/sync.ts` | `pnpm sync` writes a `data/snapshot.json` whose `provenance.terminalCursorReached` is `true`, `apiCallCount === 2 + ceil(N/100)` (expected **4**, or 5 if bulk returns more than 200 records — build.md §E.1), and which contains no key matching `/email/i`. **Plus the check H0 left open:** `listTotalCount === recordCount − deletedCount` is evaluated against the completed walk and its result — reconciled, or a `COUNT_MISMATCH` with the residual named — is recorded in `progress-tracker.md` before P2a starts |
-| **P1b** ✅ | H1 | Next scaffold, `layout.tsx`, a placeholder `page.tsx` | **Done 2026-08-22.** Live at **https://remote-org-chart.vercel.app** — `200`, served by Vercel, `http` 308s to `https`, built with **zero environment variables configured**, which is the assertion this phase exists to prove. Two `layout.tsx` obligations remain open and move to P4a: the `X-Robots-Tag: noindex` header (NFR 4) and the document title, still the scaffold's *Create Next App* |
+| **P1b** ✅ | H1 | Next scaffold, `layout.tsx`, a placeholder `page.tsx`, **`tsconfig.json` and `eslint.config.mjs` hardening** | Live at **https://remote-org-chart.vercel.app** — `200`, served by Vercel, `http` 308s to `https`, built with **zero environment variables configured**, which is the assertion this phase exists to prove. Toolchain: `pnpm lint` and `pnpm typecheck` both pass, and each boundary in §2 is verified by a probe file that fails on it rather than by inspection. Two `layout.tsx` obligations remain open and move to P4a: the `X-Robots-Tag: noindex` header (NFR 4) and the document title, still the scaffold's *Create Next App* |
 | **P2a** | H2 | `types.ts`, `normalize.ts`, `resolve-edges.ts`, `break-cycles.ts`, `build-forest.ts`, `reconcile.ts`, `ledger.ts`, `filter.ts` | `pnpm lint` passes with the `domain/` boundary rule active, and the pipeline returns a `Forest` from the real snapshot |
 | **P2b** | H2 | README §§ architecture, scope decisions, out-of-scope table | The out-of-scope table is complete and each row carries its build-it-when condition |
 | **P3** | H3 | `fixtures/edge-cases.json`, all domain tests, the contract and projection suites | `pnpm test` green. Six code tests, the conservation assertion, the two projection assertions, the determinism assertion, the two shuffle assertions, and the contract parse over every file in `fixtures/captured/` all present and named |

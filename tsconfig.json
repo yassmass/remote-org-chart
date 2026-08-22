@@ -1,27 +1,91 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
+    // ==========================================================================
+    // Core strict mode
+    //
+    // `strict` already implies strictNullChecks, strictBindCallApply,
+    // strictFunctionTypes, strictPropertyInitialization, noImplicitAny,
+    // noImplicitThis, alwaysStrict, and useUnknownInCatchVariables. Those flags
+    // are omitted rather than restated: a list that repeats what `strict` covers
+    // reads as added rigor while changing nothing.
+    // ==========================================================================
     "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
+    // ==========================================================================
+    // Extended — implicit patterns that become runtime bugs
+    // ==========================================================================
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    // ==========================================================================
+    // Ultra-strict — the four that carry weight in this codebase
+    //
+    // noUncheckedIndexedAccess     `arr[i]` types as `T | undefined`. The domain
+    //     layer indexes people, edges, and cycle members constantly, and this is
+    //     the mechanical form of NFR 6's promise about null handling. It only
+    //     holds alongside the `no-non-null-assertion` lint rule — without that,
+    //     the flag moves the problem into a `!` rather than removing it.
+    //
+    // exactOptionalPropertyTypes   `{ x?: string }` means `string`, not
+    //     `string | undefined`. Low friction here because §D.4 models absence as
+    //     `T | null` on required properties rather than as optional keys, and
+    //     this flag is what keeps that convention from drifting.
+    //
+    // noPropertyAccessFromIndexSignature   Forces bracket notation on index
+    //     signatures. Its one site is `process.env['REMOTE_API_TOKEN']` in the
+    //     sync script — the only place this system reads the environment.
+    //
+    // noFallthroughCasesInSwitch   Every case breaks or returns. Pairs with the
+    //     closed `IssueCode` and `ReportingEdge.basis` unions in §D.4.
+    // ==========================================================================
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noFallthroughCasesInSwitch": true,
+    // ==========================================================================
+    // Module resolution — fixed by Next.js, not a preference
+    //
+    // The reference config this was hardened against uses `NodeNext`, which is
+    // correct for a published library and wrong here: Next requires `esnext` +
+    // `bundler`, and NodeNext would additionally demand `.js` extensions on
+    // every relative import. Likewise `declaration`, `declarationMap`,
+    // `sourceMap`, and `composite` are emit settings, and this project emits
+    // nothing — `composite` and `noEmit` are mutually exclusive.
+    // ==========================================================================
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
+    "noEmit": true,
     "incremental": true,
+    "skipLibCheck": true,
+    // `data/snapshot.json` and `fixtures/edge-cases.json` are imported directly
+    // by `src/lib/source.ts`; the chart ships in the bundle rather than being
+    // fetched (build.md §D.5).
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true
   },
+  // Tests are included deliberately. The reference config excludes `*.test.ts`,
+  // which suits a library shipping declarations; here the guarantees in
+  // build.md §F live in the test suite, so type-checking it is the point.
   "include": [
     "next-env.d.ts",
     "**/*.ts",
@@ -30,5 +94,10 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "planning",
+    ".next",
+    "coverage"
+  ]
 }
