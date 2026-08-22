@@ -1,11 +1,13 @@
 /**
  * @fileoverview Tests for forest narrowing (build.md F9, §F.2, §H.3).
  *
- * The subject here is a `Forest`, so every case is built by running
- * `buildForest` over a small hand-authored `OrgSnapshot`. That is deliberate
- * rather than convenient: `filterForest` consumes assembly output, and a fixture
- * that skipped assembly would let a filter bug hide behind a forest shape no
- * `buildForest` would ever produce.
+ * The subject here is a `Forest`, so every case starts with `buildForest`.
+ * Focused cases use small hand-authored `OrgSnapshot`s; P3 additionally runs the
+ * filters over the generated edge-case snapshot that the deployed fixture view
+ * will consume. That split is deliberate rather than convenient: an input that
+ * skipped assembly would let a filter bug hide behind a forest shape no
+ * `buildForest` would ever produce, while resolving the raw fixture here would
+ * cross back into the sync-time half of the domain.
  *
  * @see planning/build.md F9 — name, job title, department; ancestors as context
  * @see planning/build.md §F.2 — the toggle never orphans a team
@@ -13,6 +15,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import fixtureSnapshotJson from '../../../fixtures/edge-cases.snapshot.json';
 import { buildForest } from '../build-forest';
 import { departmentOptions, filterForest, UNASSIGNED_DEPARTMENT } from '../filter';
 import type { OrgNode, OrgSnapshot, Person, ReportingEdge } from '../types';
@@ -104,6 +107,106 @@ function chainForest() {
 }
 
 const NO_FILTER = { q: null, dept: null, hideDeparted: false } as const;
+
+/**
+ * The generated fixture artifact at the exact boundary this module consumes.
+ *
+ * The cast has the same justification as the real-snapshot boundary in
+ * `build-forest.test.ts`: JSON imports widen discriminated string literals, but
+ * this file was emitted by the typed snapshot writer and is parsed nowhere in
+ * the assembly half.
+ */
+const fixtureSnapshot = fixtureSnapshotJson as unknown as OrgSnapshot;
+
+describe('filterForest · the generated edge-case snapshot', () => {
+  const forest = buildForest(fixtureSnapshot);
+
+  // The nine-link Research chain is the fixture's depth-beyond-eight case. A
+  // leaf query must retain all nine ancestors for context, mark only the leaf as
+  // a match, and leave the organization-level summary fields untouched.
+  it('retains the complete real ancestor chain for the deepest fixture match', () => {
+    const result = filterForest(forest, { ...NO_FILTER, q: 'Chain Link 45' });
+    const leaf = result.forest.byId.get('emp-045');
+
+    expect(idsInTree(result.forest.roots)).toEqual([
+      'emp-020',
+      'emp-037',
+      'emp-038',
+      'emp-039',
+      'emp-040',
+      'emp-041',
+      'emp-042',
+      'emp-043',
+      'emp-044',
+      'emp-045',
+    ]);
+    expect([...result.matchedIds]).toEqual(['emp-045']);
+    expect(leaf?.pathToRoot).toEqual([
+      'emp-044',
+      'emp-043',
+      'emp-042',
+      'emp-041',
+      'emp-040',
+      'emp-039',
+      'emp-038',
+      'emp-037',
+      'emp-020',
+    ]);
+    expect(result.forest.maxDepth).toBe(9);
+    expect(result.forest.principalRootId).toBe('emp-001');
+  });
+
+  // Duplicate display names are never identity. The fixture deliberately puts
+  // Alan Turing in two departments and two reporting positions; both employment
+  // ids must be matches, with the union of their ancestor paths retained.
+  it('keeps duplicate names as two employment-id matches', () => {
+    const result = filterForest(forest, { ...NO_FILTER, q: 'Alan Turing' });
+
+    expect([...result.matchedIds].sort()).toEqual(['emp-015', 'emp-021']);
+    expect(idsInTree(result.forest.roots)).toEqual([
+      'emp-001',
+      'emp-002',
+      'emp-003',
+      'emp-015',
+      'emp-021',
+    ]);
+  });
+
+  // External managers are ordinary selectable nodes after resolution. F9 keeps
+  // matches and ancestors, not descendants, so searching Sofia returns the
+  // synthetic root alone rather than the two reports attached beneath it.
+  it('finds the resolved external manager without retaining descendants', () => {
+    const result = filterForest(forest, { ...NO_FILTER, q: 'Sofia Reyes' });
+
+    expect([...result.matchedIds]).toEqual(['external:sofia reyes']);
+    expect(idsInTree(result.forest.roots)).toEqual(['external:sofia reyes']);
+  });
+
+  // The fixture carries the two cases that made department identity explicit:
+  // `Product Design` versus ` product  design `, and a null department. The menu
+  // and matcher must agree on both because `filter.ts` owns both halves.
+  it('groups fixture departments and exposes the terminal Unassigned bucket', () => {
+    const options = departmentOptions(fixtureSnapshot.people);
+    const productDesign = filterForest(forest, { ...NO_FILTER, dept: 'Product Design' });
+    const unassigned = filterForest(forest, {
+      ...NO_FILTER,
+      dept: UNASSIGNED_DEPARTMENT,
+    });
+
+    expect(options.map((option) => option.label)).toEqual([
+      'Engineering',
+      'Executive',
+      'Mathematics',
+      'Product Design',
+      'Research',
+      UNASSIGNED_DEPARTMENT,
+    ]);
+    expect(productDesign.matchedIds).toHaveLength(14);
+    expect(productDesign.matchedIds.has('emp-003')).toBe(true);
+    expect(productDesign.matchedIds.has('emp-004')).toBe(true);
+    expect([...unassigned.matchedIds]).toEqual(['emp-005']);
+  });
+});
 
 describe('filterForest · the query (F9)', () => {
   it('retains every node and matches nothing when no criterion is active', () => {

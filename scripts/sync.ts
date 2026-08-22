@@ -23,7 +23,7 @@
  * config arrives as an argument — which is what keeps NFR 3 checkable: exactly
  * one file in this repository can see a token, and it is this one.
  *
- * ## The order of the three calls is deliberate
+ * ## The order of the three read operations is deliberate
  *
  * Identity first, because it supplies the company id and doubles as a token
  * smoke test. **The control total second, before the bulk walk**, because it
@@ -121,7 +121,7 @@ async function main(): Promise<number> {
   const log: SyncLogEntry[] = [];
   const config = { baseUrl: BASE_URL, token, onLog: (entry: SyncLogEntry) => log.push(entry) };
 
-  // ---- The three calls, in the order §E.1 fixes ---------------------------
+  // ---- The three read operations, in the order §E.1 fixes -----------------
   let companyId: string;
   let companyName: string;
   let listTotalCount: number;

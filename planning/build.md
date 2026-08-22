@@ -1,6 +1,6 @@
 # Org Chart — Build Specification
 
-**Version:** 1.8 · 2026-08-22. Revision history at the foot of this document.
+**Version:** 1.9 · 2026-08-22. Revision history at the foot of this document.
 
 **System:** Organizational chart for the company the API token resolves to. In the issued sandbox that is **CatarinaFDE Demo2** (`5ca666ff-…`, 191 employments), not the "Acme Sandbox Corp" the engagement brief describes — see §D.5.
 **Data source:** Remote Customer API (sandbox) · `gateway.remote-sandbox.com/v1`
@@ -160,9 +160,9 @@ The pre-pass is not decoration: a quarantined record must still be **counted** a
 
 Both stages run in `lib/ingest.ts` — the one module that turns raw records into validated ones, imported by every script that reads them, the bulk walk and the fixture bake alike. It calls the schemas in `lib/schemas.ts` and raises `RECORD_INVALID` through `ledger.issue()` rather than authoring the code itself, so both the parse and the code keep a single owner (§H.2). A parse living inside a script's `main()` would satisfy neither: §I.1 requires a test for every §F.1 code, and code reachable only by running a script against a token has no test layer this document admits. `normalize.ts` therefore receives records that have already satisfied the projection and cannot fail.
 
-A record that fails **the pre-pass itself** has no readable identity, and the invariant has to say what becomes of it rather than argue that it cannot happen. It is counted in `recordCount` and quarantined as `RECORD_INVALID` with a null `employmentId` and a positional detail — `record 117 of 191` — so the conservation law stays total and the walk continues, consistent with the rule that one malformed record never blanks the chart. Such a record cannot be classified as deleted, so a nonzero pre-pass failure count is itself the explanation for any `COUNT_MISMATCH` raised alongside it.
+A record that fails **the pre-pass itself** has no readable identity, and the invariant has to say what becomes of it rather than argue that it cannot happen. It is counted in `recordCount` and quarantined as `RECORD_INVALID` with a null `employmentId` and a canonical diagnostic position — `record 117 of 191` — so both the conservation law and raw-order determinism stay total while the walk continues. Such a record cannot be classified as deleted, so a nonzero pre-pass failure count is itself the explanation for any `COUNT_MISMATCH` raised alongside it.
 
-**The position is an index into the walk, not a page coordinate.** `walkBulk` returns one flat record array and does not preserve page boundaries, so a page-relative detail is not derivable at the point the finding is raised; recovering it would mean adding a field to the walk result that nothing else reads. The flat index is also the form that works unchanged for `bake-fixture.ts`, whose input has no pages at all, and it is unique per record — which §G.3 now depends on, since `safeDetail` is the third term of the `issues` sort key.
+**The position is canonical, not an arrival index or page coordinate.** Cursor pagination promises no stable arrival order, while §G.3 includes `safeDetail` in the hash; writing the walk index into that field would make unchanged raw records hash differently after a reorder. `ingest` therefore places every record that passed the pre-pass in a conceptual prefix, then orders the pre-pass failures by their privacy-safe field-path set and assigns consecutive one-based positions. Equal failures are interchangeable because no rejected value enters their finding; the resulting finding multiset is identical under every permutation. The position stays flat and unique, works unchanged for `bake-fixture.ts`, and reads no undeclared payload field to establish its order.
 
 ### D.3 Derived entities
 
@@ -315,7 +315,7 @@ type Forest = {
 | **Committed snapshot** | `?source=snapshot` (default) | `data/snapshot.json` | `CatarinaFDE Demo2 · Data captured 22 Aug, 3:13 PM · today` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
 | **Edge-case fixture** | `?source=fixture` | `fixtures/edge-cases.snapshot.json` | `Demo data — synthetic fixture, not real company data` | The zero-credential run path and the demonstration surface for §F |
 
-Both served files are `OrgSnapshot`s, so `source.ts` statically imports one or the other and never converts. The fixture's served form is **generated, not authored**: `fixtures/edge-cases.json` holds raw records and is what every domain test runs against, and the resolution half of the domain produces the `.snapshot.json` beside it. Both are committed.
+Both served files are `OrgSnapshot`s, so `source.ts` statically imports one or the other and never converts. The fixture's served form is **generated, not authored**: `fixtures/edge-cases.json` holds raw records and drives ingest plus the resolution-half tests; the resolution half produces the `.snapshot.json` beside it, and assembly-half tests consume that generated `OrgSnapshot` because it is their actual input contract. Both forms are committed and the bake runs before the suite.
 
 That indirection is what makes F8's claim true rather than merely plausible. Authoring the served form directly would state the resolver's output as the resolver's input, so every ledger-code test would pass even if `resolve-edges.ts` were wrong — the same defect that keeps `isDeparted` a predicate rather than a stored field (§E.4). The sibling is regenerated by the command CI runs, so a stale one fails the build rather than the eye.
 
@@ -587,7 +587,7 @@ The domain layer is pure, so the same input always produces the same `OrgSnapsho
 
 Purity alone does not make *re-syncing* deterministic. Cursor pagination guarantees no stable ordering between walks, so unchanged data can arrive in a different order and serialize to a different byte sequence. **Canonical ordering is therefore part of the contract, not an optimization.** Before hashing and before writing, **all five collections** are sorted on a key that is **unique within that collection** — `people`, `externalManagers`, and `unresolvedManagers` by id, `edges` by `reportEmploymentId`, `issues` by `(code, employmentId, safeDetail)` — and serialization runs through a canonical serializer so the hash covers a defined byte sequence.
 
-**Uniqueness is the property that matters, not stability.** `Array.prototype.sort` has been stable since ES2019, so elements with equal keys keep arrival order rather than being ordered at all — a non-unique key does not fail loudly, it passes arrival order straight into the hash. `issues` therefore needs a third term, because two records failing the §D.2 pre-pass both produce `RECORD_INVALID` with a null `employmentId`; `safeDetail` already carries the positional detail §D.2 requires, so no new field is needed.
+**Uniqueness is the property that matters, not stability.** `Array.prototype.sort` has been stable since ES2019, so elements with equal keys keep arrival order rather than being ordered at all — a non-unique key does not fail loudly, it passes arrival order straight into the hash. `issues` therefore needs a third term, because two records failing the §D.2 pre-pass both produce `RECORD_INVALID` with a null `employmentId`; `safeDetail` already carries the canonical diagnostic position §D.2 requires, so no new field is needed and raw permutations remain hash-identical.
 
 **Each collection needs at least two elements in the fixture**, or the sort is asserted by a case that cannot be misordered.
 
@@ -666,9 +666,9 @@ src/
   components/               presentational only; consume Person / OrgNode, never raw API shapes
 data/snapshot.json          client-safe OrgSnapshot, committed, ships in the bundle
 data/sync.log               redacted transcript of the walk — the evidence chain in §I.1
-fixtures/edge-cases.json    raw records. The input to every domain test (§I.1)
+fixtures/edge-cases.json    authored raw records. Resolution-test input and source of the bake (§I.1)
 fixtures/edge-cases.snapshot.json  generated from the above; what ?source=fixture serves (§D.5)
-fixtures/captured/          real sandbox responses, redacted at capture (§I.1)
+fixtures/captured/          real sandbox response bodies, redacted at capture (§I.1)
 ```
 
 `domain/` importing from `lib/` or `app/` is a build error. That single rule is what allows the entire §F specification to be verified in seconds with no network and no credential, and what would let the domain layer serve another org-chart source by writing one adapter.
@@ -748,20 +748,21 @@ Every guarantee in this document is falsifiable by something in this section. Wh
 
 ### I.1 What is tested, and at which layer
 
-Roughly fifteen tests. The whole suite runs in seconds with no network and no credential, which is what makes it worth running on every change.
+The whole suite runs in seconds with no network and no credential, which is what makes it worth running on every change. Counts may grow as a guarantee gains an independent falsification case; named behavior, not a target percentage, determines completeness.
 
 | Layer | Covers | Why here |
 |---|---|---|
 | **Unit — domain** | One test per §F.1 code, five of them here and `RECORD_INVALID` with the parse in `lib/ingest.ts` · the conservation law · rung mutual exclusivity (§D.6 rule 1) · external-manager merge over shuffled input · deterministic cycle cut over shuffled input · root and child ordering over shuffled input, including that `principalRootId` is unchanged by input order (§G.3) | The guarantees live in pure functions |
-| **Contract** | Zod schemas parsed against `fixtures/captured/` — **actual sandbox responses**, redacted per the rule below, never shapes hand-written from documentation | This is the layer that catches a Remote shape change. It is the test that would have caught the `201` identity response, the `country` object, and the widened `status` enum before they became incidents |
+| **Unit — lib boundary** | Both `id` and `status` pre-pass failures independently · null-id canonical positions under reversed raw input · novel values in `status`, `user_status`, `type`, and `employment_lifecycle_stage` · the complete any-2xx classifier including `201` | These are parser and transport-policy guarantees, not graph rules; each is exercised through the production function that owns it |
+| **Contract** | Zod schemas parsed against `fixtures/captured/` — **actual sandbox response bodies**, redacted per the rule below, never shapes hand-written from documentation | Body schemas catch Remote shape changes such as the `country` object. HTTP status is transport metadata and cannot be inferred from a body fixture; the unit row above owns that policy instead |
 | **Projection shape** | The projected `country` object carries exactly `name` and `code` and no other key; no field named `*email*` appears anywhere in a serialized snapshot | Privacy (NFR 4) is a property that regresses silently. This asserts it mechanically rather than by review |
-| **Determinism** | The same records in a different arrival order produce a byte-identical `contentHash` | The cheapest guard in the suite, and it covers three mechanisms at once: canonical ordering, external-manager merging, and cycle cutting |
+| **Determinism** | The same authored raw records in a different arrival order traverse the full resolution pipeline and produce byte-identical JSON and `contentHash` · recursively different object-key insertion order remains byte-identical · changing one hash-covered value changes the hash | Together these pin canonical diagnostic positions, external-manager merging, cycle cutting, all five collection sorts, canonical serialization, and hash sensitivity rather than merely observing one green equality |
 
-**The fixture has two forms, and only one is authored** (§D.5). Every test here runs against the raw records; the generated sibling is what `?source=fixture` serves.
+**The fixture has two forms, and only one is authored** (§D.5). Ingest and resolution assertions begin with the raw records. Assembly assertions begin with the generated sibling because `buildForest` and `filterForest` consume an `OrgSnapshot`; `buildForest` exercises that baked artifact under input shuffles as well as the real snapshot. The full-pipeline determinism assertion begins raw and ends at serialized bytes. The generated sibling is also what `?source=fixture` serves.
 
 **How captured fixtures are redacted.** They are committed, so they are redacted **at capture**, not before commit — once a raw body is on disk the path of least resistance is to keep it. The identity response retains `data.company` and drops `data.user` entirely, which is the only place in this repository a real person's name and email would otherwise appear. Each employment record retains every field of the §D.2 projection exactly as returned, and every other value is replaced with a type-preserving placeholder: string → `"redacted"`, number → `0`, boolean → `false`, `null` stays `null`, objects recurse, arrays keep their length. Every key and every type survives, which is all the schemas parse — so the contract test above loses none of its power, and NFR 4 holds across the repository rather than only across the artifacts the system generates.
 
-**Verifying the integration without a token.** Because the deployed system makes no API call, the fetch is not observable at runtime — a reader cannot watch it happen, and has no credential to run `pnpm sync` themselves. This is the one place where the build-step architecture is worse for a reader than a live fetch, so the evidence is committed instead of demonstrated. `fixtures/captured/` holds the sandbox responses themselves, redacted per the rule above; the contract tests parse the shipped schemas against them, so CI proves the schemas match reality rather than documentation. `data/sync.log` carries the redacted transcript of the walk — page indices, durations, rate-limit headers, record counts. And the review bar renders the walk's own counters, not merely its date: four API calls, two pages, terminal cursor reached, and the §G.2 count identity shown as the arithmetic it performs rather than as a tick. Each of those is checkable by someone holding only the repository.
+**Verifying the integration without a token.** Because the deployed system makes no API call, the fetch is not observable at runtime — a reader cannot watch it happen, and has no credential to run `pnpm sync` themselves. This is the one place where the build-step architecture is worse for a reader than a live fetch, so the evidence is committed instead of demonstrated. `fixtures/captured/` holds the sandbox response bodies, redacted per the rule above; the contract tests parse the shipped schemas against them, so CI proves the body schemas match reality rather than documentation. Transport status is pinned separately by the production status-classifier test. `data/sync.log` carries the redacted transcript of the walk — page indices, durations, rate-limit headers, record counts. And the review bar renders the walk's own counters, not merely its date: four API calls, two pages, terminal cursor reached, and the §G.2 count identity shown as the arithmetic it performs rather than as a tick. Each of those is checkable by someone holding only the repository.
 
 ### I.2 What is deliberately not tested
 
@@ -769,7 +770,7 @@ Roughly fifteen tests. The whole suite runs in seconds with no network and no cr
 
 **No load testing.** The deployed system serves a static artifact from a CDN and contends for no resource. A load test would produce a number about someone else's infrastructure.
 
-**No mocked-transport integration tests.** The retry, rate-limit, and auth branches in §G.1 all live in a human-run script whose failures are visible in a terminal within seconds. Building a mock harness to assert what a developer sees on stderr is the clearest example in this build of testing that costs more than the failure it prevents.
+**No mocked-transport integration tests.** The retry, rate-limit, and auth branches in §G.1 all live in a human-run script whose failures are visible in a terminal within seconds. Building a mock harness to assert what a developer sees on stderr is the clearest example in this build of testing that costs more than the failure it prevents. This exclusion does not cover pure policy functions: `isSuccessStatus` is tested at the adjacent 199/200 and 299/300 boundaries, explicitly including 201, because that one comparison is otherwise invisible in a captured body fixture.
 
 ### I.3 Service levels
 
@@ -844,6 +845,7 @@ All three items carried through 1.3 were closed by the complete walk of 2026-08-
 
 | Version | Date | Change |
 |---|---|---|
+| **1.9** | 2026-08-22 | P3 falsifiability audit. §D.2 replaces arrival-index diagnostics with privacy-safe canonical positions, resolving the conflict between null-id findings and §G.3 raw-order hash invariance without excluding any issue data from the hash. §I.1 assigns raw and generated fixture forms to their actual layers, separates HTTP-status proof from body-schema proof, and pins full-pipeline arrival order, recursive key order, and hash sensitivity. |
 | **1.8** | 2026-08-22 | §D.5 fixes the fixture's own `company.name` as `Edge Case Fixture` — the real path reads it from `/v1/identity/current`, which the fixture never calls, so the value had no owner and was being originated in code. |
 | **1.7** | 2026-08-22 | The §D.6 rule 2 fold given a single owner, `domain/fold.ts`, after three implementations of it appeared across two modules — the rule this project restates most is the one most able to drift. §H.3 names `filter.ts` as owner of the department **menu** as well as the filter, so the grouping offered cannot disagree with the grouping applied. |
 | **1.6** | 2026-08-22 | Two gaps closed during P2a, both found by writing the assembly half. `UnresolvedManager` carries no name while `OrgNode.displayName` is required, so §H.3 fixes the unresolved node's display form as `Unresolved manager · <missingManagerId>` — which also gives `missingManagerId` the reader it lacked. `?dept=` settled as the department **name** rather than the id, since `department_id` is nullable independently and cannot address the Unassigned bucket; departments group under the §D.6 rule 2 normalisation, its fourth application. |

@@ -1,10 +1,10 @@
 /**
  * @fileoverview The only file in this system that performs network I/O.
  *
- * Three calls, in a fixed order, against the Remote Customer API (build.md
- * §E.1): company identity, an independent control total, then a cursor walk of
- * every employment. Nothing else in the repository opens a socket, and a lint
- * rule keeps `app/` and `components/` from importing this module at all — the
+ * Three read operations, in a fixed order, against the Remote Customer API
+ * (build.md §E.1): company identity, an independent control total, then a cursor
+ * walk of every employment. Nothing else in the repository opens a socket, and
+ * a lint rule keeps `app/` and `components/` from importing this module at all — the
  * deployed application makes no request, which is what allows it to hold no
  * credential and to keep serving after the sandbox token is revoked.
  *
@@ -78,6 +78,22 @@ const BULK_PAGE_SIZE = 100;
  * can never fire on a legitimate walk.
  */
 const MAX_PAGES = 1_000;
+
+/**
+ * Return whether an HTTP status belongs to the complete success class.
+ *
+ * Remote documents `/v1/identity/current` under `201` while the issued sandbox
+ * answered `200`. Keeping the range decision in one pure function makes the
+ * production rule mechanically testable without a mocked transport: every
+ * integer from 200 through 299 is accepted, and both adjacent boundaries are
+ * rejected. A literal `status === 200` cannot satisfy that contract.
+ *
+ * @param status the numeric HTTP response status
+ * @returns `true` exactly for the inclusive 200–299 range
+ */
+export function isSuccessStatus(status: number): boolean {
+  return status >= 200 && status < 300;
+}
 
 /** HTTP statuses worth retrying. 401, 403 and 429 are handled separately and deliberately. */
 const RETRYABLE_STATUSES = new Set([408, 500, 502, 503, 504]);
@@ -403,7 +419,7 @@ async function fetchJson(
     // Any 2xx is success. `/v1/identity/current` documents its success schema
     // under 201 while the sandbox answers 200, so comparing against a literal
     // status would report a false outage on a healthy token (§E.4).
-    if (!response.ok) {
+    if (!isSuccessStatus(status)) {
       log({ attempt, status, durationMs, rateLimit, outcome: 'error', note: `HTTP ${String(status)}` });
       throw new RemoteApiError('http', `Unexpected HTTP ${String(status)} from ${spec.path}.`, {
         status,
@@ -435,7 +451,7 @@ async function fetchJson(
 }
 
 /**
- * Envelope validation, uniform across the three calls.
+ * Envelope validation, uniform across all three read operations.
  *
  * A schema failure here is categorically different from a record failure. A
  * record that does not parse is quarantined and the walk continues (§G.1); an

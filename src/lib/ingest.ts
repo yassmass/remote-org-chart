@@ -42,7 +42,7 @@
  * is the term §G.2's count identity subtracts, and the complete walk of
  * 2026-08-22 confirmed that identity exact.
  *
- * @see planning/build.md §D.2 — the projection, the two stages, the positional detail
+ * @see planning/build.md §D.2 — the projection, the two stages, the canonical position
  * @see planning/build.md §G.1 — the Schema row and the 20% drift refusal
  * @see planning/build.md §G.2 — why both terms must come from stage one
  * @see planning/build.md §F.1 — RECORD_INVALID
@@ -96,7 +96,7 @@ export type IngestCounts = {
 export type IngestResult = {
   /** Survivors of both stages. `normalize()` cannot fail on these. */
   records: EmploymentRecord[];
-  /** One `RECORD_INVALID` per rejected element, in walk order. */
+  /** One `RECORD_INVALID` per rejected element, in input iteration order. */
   issues: DataIssue[];
   counts: IngestCounts;
 };
@@ -133,15 +133,19 @@ function safeFieldPaths(error: { issues: readonly { path: readonly PropertyKey[]
  * good snapshot with an empty one is how real integrations corrupt customer
  * data. That decision needs both counts returned here, and is not made here.
  *
- * ## The positional detail
+ * ## The canonical diagnostic position
  *
- * A record that fails stage one has no readable id, so the finding identifies it
- * by where it sat in the walk. The index is one-based and flat, because
- * `walkBulk` returns a single record array with page boundaries already
- * discarded, and because `bake-fixture.ts` reads a file that has no pages at
- * all. It is unique per record, which §G.3 now relies on: `safeDetail` is the
- * third term of the `issues` sort key precisely because two stage-one failures
- * would otherwise carry identical keys and fall back to arrival order.
+ * A record that fails stage one has no readable id, so the finding needs a stable
+ * surrogate. Arrival index cannot supply one: cursor pagination promises no
+ * stable order, and `safeDetail` is hash-covered. The position therefore places
+ * every identifiable record first, then orders pre-pass failures by their
+ * privacy-safe field-path set. Equal failures are interchangeable because their
+ * findings contain no raw value; assigning the consecutive positions to that
+ * equal group produces the same finding multiset under every permutation.
+ *
+ * The result remains one-based, flat, and unique per rejected element. It also
+ * reads no undeclared payload value to establish the order, preserving NFR 4's
+ * stronger rule that email fields are never read at all.
  *
  * @param raw the record array exactly as it arrived, unvalidated
  * @returns the survivors, the findings, and the stage-one counts
@@ -150,6 +154,36 @@ export function ingest(raw: readonly unknown[]): IngestResult {
   const records: EmploymentRecord[] = [];
   const issues: DataIssue[] = [];
 
+  /**
+   * Parse stage one once, before emitting any finding.
+   *
+   * The complete result set is needed to assign arrival-independent positions
+   * to failures. Keeping the element beside its result avoids a second schema
+   * parse and preserves the caller's record order for successful projections.
+   */
+  const prepared = raw.map((element) => ({ element, prePass: PrePassSchema.safeParse(element) }));
+
+  /**
+   * Map each failing input slot to its canonical one-based diagnostic position.
+   *
+   * Successful pre-pass records occupy the conceptual prefix. Failures then sort
+   * only on field paths, never values. The native sort's stability is harmless
+   * for equal keys: those findings are identical apart from the consecutive
+   * positions assigned to the group, so their serialized multiset is invariant.
+   */
+  const failures = prepared.flatMap(({ prePass }, sourceIndex) =>
+    prePass.success ? [] : [{ sourceIndex, fieldPaths: safeFieldPaths(prePass.error) }],
+  );
+  failures.sort((a, b) =>
+    a.fieldPaths < b.fieldPaths ? -1 : a.fieldPaths > b.fieldPaths ? 1 : 0,
+  );
+
+  const canonicalPositionBySourceIndex = new Map<number, number>();
+  const identifiableCount = prepared.length - failures.length;
+  for (const [failureIndex, failure] of failures.entries()) {
+    canonicalPositionBySourceIndex.set(failure.sourceIndex, identifiableCount + failureIndex + 1);
+  }
+
   const counts: IngestCounts = {
     recordCount: raw.length,
     quarantinedCount: 0,
@@ -157,22 +191,24 @@ export function ingest(raw: readonly unknown[]): IngestResult {
     unclassifiableCount: 0,
   };
 
-  for (const [index, element] of raw.entries()) {
-    const position = index + 1;
-
+  for (const [sourceIndex, { element, prePass }] of prepared.entries()) {
     // ---- Stage one: is this an employment at all? -------------------------
-    const prePass = PrePassSchema.safeParse(element);
-
     if (!prePass.success) {
-      // No readable identity. Counted, quarantined, and located positionally so
-      // the conservation law stays total — the one case the pre-pass exists for.
+      // No readable identity. Counted, quarantined, and located canonically so
+      // both the conservation law and the raw-order hash invariant stay total.
       counts.quarantinedCount += 1;
       counts.unclassifiableCount += 1;
+      const position = canonicalPositionBySourceIndex.get(sourceIndex);
+
+      // Every failed result populated the map above. Throwing here would turn a
+      // malformed source record into a whole-walk failure, so retain a safe,
+      // deterministic fallback that can only indicate an internal defect.
+      const diagnosticPosition = position ?? identifiableCount + failures.length;
       issues.push(
         issue('RECORD_INVALID', {
           employmentId: null,
           displayName: null,
-          safeDetail: `Record ${String(position)} of ${String(raw.length)} could not be identified: ${safeFieldPaths(prePass.error)}.`,
+          safeDetail: `Record ${String(diagnosticPosition)} of ${String(raw.length)} could not be identified: ${safeFieldPaths(prePass.error)}.`,
         }),
       );
       continue;

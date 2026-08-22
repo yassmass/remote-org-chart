@@ -82,9 +82,9 @@ const CountryProjection = z
  * `id` and `status` are the two fields whose absence means the response is not
  * an employment list (build.md §D.2). A record failing this parse has no
  * readable identity: it is still counted in `recordCount` and still quarantined
- * as `RECORD_INVALID`, but with a null `employmentId` and a positional detail
- * such as `record 117 of 191`, so the conservation law stays total and the walk
- * continues.
+ * as `RECORD_INVALID`, but with a null `employmentId` and a canonical diagnostic
+ * position such as `record 117 of 191`, so both conservation and raw-order
+ * determinism stay total while the walk continues.
  *
  * ## Why the pre-pass now contains exactly two fields
  *

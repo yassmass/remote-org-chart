@@ -88,10 +88,11 @@ function byCodePoint(a: string, b: string): number {
  * means equal keys silently retain arrival order rather than failing — the sort
  * would appear to work while passing cursor order straight into the hash.
  *
- * `safeDetail` is the third term because it already carries the positional
- * index that makes each such finding unique, so no field had to be invented to
- * sort on. The null id coerces to the empty string, which sorts before every
- * real id and, more importantly, sorts *consistently*.
+ * `safeDetail` is the third term because it already carries the canonical
+ * diagnostic position that makes each such finding unique, so no field had to
+ * be invented to sort on. `ingest.ts` assigns that position independently of
+ * arrival order. The null id coerces to the empty string, which sorts before
+ * every real id and, more importantly, sorts *consistently*.
  */
 function compareIssues(a: DataIssue, b: DataIssue): number {
   return (

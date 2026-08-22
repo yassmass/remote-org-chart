@@ -1,21 +1,27 @@
 /**
  * @fileoverview Tests for the forest assembly (build.md §G.3, §H.3).
  *
- * Two dataset sources, and the split is deliberate.
+ * Three dataset sources, and the split is deliberate.
  *
  * The **real snapshot** carries P2a's definition of done and the ordering rules
  * that only matter at scale — 191 people across 42 roots, one of which holds 112
  * descendants while 37 hold none. No hand-built fixture reproduces that shape,
  * and it is the shape the depth-2 default is judged against.
  *
- * **Inline snapshots** carry the branches the real data does not contain. The
+ * The **baked edge-case fixture** is the resolved artifact the deployed fixture
+ * view will consume. It proves that assembly preserves the external-manager,
+ * unresolved-manager, cycle-cut and deep-chain decisions already written by the
+ * resolution half, without re-running or reconstructing that half in this test.
+ *
+ * **Inline snapshots** isolate branches whose exact preconditions are easier to
+ * state locally. The
  * full walk raised exactly one of six §F.1 codes: there is no cycle, no external
  * manager and no dangling pointer anywhere in `data/snapshot.json`, so both
  * `principalRootId` exclusions and the synthetic kind rank would otherwise be
  * untested prose. These are `OrgSnapshot`s built by hand because that is what
  * this module consumes — the authored `fixtures/edge-cases.json` holds *raw
- * records*, which feed the resolution half, and its baked sibling is generated
- * by `pnpm bake:fixture` in P3.
+ * records*, which feed the resolution half, and its baked sibling is the third
+ * source above.
  *
  * @see planning/build.md §G.3 — ordering and determinism
  * @see planning/build.md §H.3 — the principal root
@@ -24,6 +30,7 @@
 import { describe, expect, it } from 'vitest';
 
 import realSnapshotJson from '../../../data/snapshot.json';
+import fixtureSnapshotJson from '../../../fixtures/edge-cases.snapshot.json';
 import { buildForest } from '../build-forest';
 import type { OrgNode, OrgSnapshot, Person, ReportingEdge } from '../types';
 
@@ -36,6 +43,17 @@ import type { OrgNode, OrgSnapshot, Person, ReportingEdge } from '../types';
  * which is typed against `OrgSnapshot` at its own definition site.
  */
 const realSnapshot = realSnapshotJson as unknown as OrgSnapshot;
+
+/**
+ * The generated edge-case artifact, narrowed at the same typed boundary.
+ *
+ * This is deliberately the `.snapshot.json` sibling rather than the authored
+ * raw fixture. `buildForest` belongs to the assembly half and consumes resolved
+ * snapshots; parsing and resolving the raw records again here would test a
+ * different layer and make an upstream failure indistinguishable from an
+ * assembly failure.
+ */
+const fixtureSnapshot = fixtureSnapshotJson as unknown as OrgSnapshot;
 
 /** A `Person` with every field present, so tests state only what they vary. */
 function person(employmentId: string, name: string): Person {
@@ -203,6 +221,103 @@ describe('buildForest · the real committed snapshot', () => {
         expect(rootIds(shuffled.byId.get(id)?.children ?? [])).toEqual(rootIds(node.children));
       }
     }
+  });
+});
+
+describe('buildForest · the generated edge-case snapshot', () => {
+  const forest = buildForest(fixtureSnapshot);
+
+  // The generated fixture's measured assembly contract from P3.
+  //
+  // The four numbers are not illustrative: 46 records survived ingest, the
+  // resolver added two external and two unresolved roots, the nine-link chain
+  // fixes the greatest zero-indexed depth, and `emp-001` is the qualifying
+  // person root with the largest subtree.
+  it('assembles the complete measured fixture forest', () => {
+    const people = [...forest.byId.values()].filter((node) => node.kind === 'person');
+
+    expect(people).toHaveLength(46);
+    expect(forest.byId).toHaveLength(50);
+    expect(forest.roots).toHaveLength(8);
+    expect(forest.maxDepth).toBe(9);
+    expect(forest.principalRootId).toBe('emp-001');
+  });
+
+  // The baked fixture is the assembly dataset carrying both synthetic kinds and
+  // cycle-cut roots. Shuffling all four collections closes the inherited P3
+  // obligation on the exact branches absent from the real snapshot.
+  it('keeps fixture roots, children, depth, and principal invariant under input order', () => {
+    for (const seed of [3, 17, 101]) {
+      const shuffled = buildForest({
+        ...fixtureSnapshot,
+        people: shuffle(fixtureSnapshot.people, seed),
+        externalManagers: shuffle(fixtureSnapshot.externalManagers, seed * 7),
+        unresolvedManagers: shuffle(fixtureSnapshot.unresolvedManagers, seed * 13),
+        edges: shuffle(fixtureSnapshot.edges, seed * 31),
+      });
+
+      expect(rootIds(shuffled.roots)).toEqual(rootIds(forest.roots));
+      expect(shuffled.principalRootId).toBe(forest.principalRootId);
+      expect(shuffled.maxDepth).toBe(forest.maxDepth);
+      expect(shuffled.byId.size).toBe(forest.byId.size);
+
+      for (const [id, node] of forest.byId) {
+        expect(rootIds(shuffled.byId.get(id)?.children ?? [])).toEqual(rootIds(node.children));
+      }
+    }
+  });
+
+  // Synthetic roots are the only assembly branches absent from the real walk.
+  // Their counts are derived from resolved edges: the two Sofia spellings merge
+  // upstream into one external node with two reports, Marcus keeps one, and each
+  // distinct dangling manager id owns exactly one report.
+  it('places both synthetic kinds with their resolved reports and display names', () => {
+    const sofia = forest.byId.get('external:sofia reyes');
+    const marcus = forest.byId.get('external:marcus chen');
+    const missing998 = forest.byId.get('unresolved:emp-998');
+    const missing999 = forest.byId.get('unresolved:emp-999');
+
+    expect(sofia).toMatchObject({ kind: 'external', displayName: 'Sofia Reyes', directReports: 2 });
+    expect(marcus).toMatchObject({ kind: 'external', displayName: 'Marcus Chen', directReports: 1 });
+    expect(missing998).toMatchObject({
+      kind: 'unresolved',
+      displayName: 'Unresolved manager · emp-998',
+      directReports: 1,
+    });
+    expect(missing999).toMatchObject({
+      kind: 'unresolved',
+      displayName: 'Unresolved manager · emp-999',
+      directReports: 1,
+    });
+
+    expect(rootIds(sofia?.children ?? [])).toEqual(['emp-008', 'emp-007']);
+    expect(rootIds(marcus?.children ?? [])).toEqual(['emp-047']);
+    expect(rootIds(missing998?.children ?? [])).toEqual(['emp-046']);
+    expect(rootIds(missing999?.children ?? [])).toEqual(['emp-006']);
+  });
+
+  // `CYCLE_BROKEN` is an edge fact established before assembly. The forest must
+  // retain both cut members as visible roots while refusing to present either as
+  // the head of the organization. This is the fixture-level proof of the second
+  // `principalRootId` exclusion in build.md §H.3.
+  it('renders cycle-cut members as roots without electing one as principal', () => {
+    const cycleCutIds = fixtureSnapshot.edges
+      .filter((edge) => edge.basis === 'cycle_broken')
+      .map((edge) => edge.reportEmploymentId)
+      .sort();
+
+    expect(cycleCutIds).toEqual(['emp-009', 'emp-010']);
+    expect(cycleCutIds.every((id) => forest.roots.some((root) => root.id === id))).toBe(true);
+    expect(cycleCutIds).not.toContain(forest.principalRootId);
+  });
+
+  // The fixture crosses the UI's fifteen-child cap by construction. Assembly is
+  // responsible only for preserving the complete fact — 17 direct reports — so
+  // the later tree component can show fifteen and disclose the remaining two.
+  it('preserves all seventeen direct reports under emp-002', () => {
+    expect(forest.byId.get('emp-002')).toMatchObject({
+      directReports: 17,
+    });
   });
 });
 

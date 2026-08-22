@@ -116,7 +116,7 @@ function main(): number {
   if (raw === null) {
     console.error(
       'fixtures/edge-cases.json is missing, unreadable, or is not a JSON array.\n' +
-        'It holds raw employment records — the input to every domain test (build.md §D.5).',
+        'It holds raw employment records — the source of the generated assembly fixture (build.md §D.5).',
     );
     return EXIT.config;
   }
