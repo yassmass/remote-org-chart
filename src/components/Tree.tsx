@@ -140,15 +140,17 @@ function HierarchyMarker({ synthetic }: { synthetic: boolean }) {
 }
 
 /**
- * Render the exact 24px disclosure geometry authorized by design.md §9.6.
+ * Render the compact disclosure geometry aligned to the 24px action shell.
  */
 function BranchChevron({ expanded }: { expanded: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className={`size-6 transition-transform duration-200${expanded ? ' rotate-180' : ''}`}
+      className={`size-4 transition-transform duration-200${expanded ? ' rotate-180' : ''}`}
       fill="none"
+      height="16"
       viewBox="0 0 24 24"
+      width="16"
     >
       <path
         d="m7 9 5 5 5-5"
@@ -401,7 +403,7 @@ export function Tree({
                 aria-expanded={node.children.length > 0 ? expanded : undefined}
                 aria-level={node.depth + 1}
                 aria-selected={selected}
-                className={`${emphasized ? 'selected-panel' : 'hairline-row'} relative my-[var(--space-2)] focus-visible:z-10`}
+                className={`${emphasized ? 'selected-panel' : 'hairline-row flex items-center'} relative my-[var(--space-2)] focus-visible:z-10`}
                 data-tree-node-id={node.id}
                 onFocus={() => {
                   setActiveId(node.id);
@@ -413,13 +415,17 @@ export function Tree({
                 tabIndex={rovingActiveId === node.id ? 0 : -1}
               >
                 <span
-                  className={`absolute left-[var(--space-5)] top-[var(--space-5)] ${emphasized ? 'text-[var(--selected-ink)]' : 'text-[var(--accent)]'}`}
+                  className={
+                    emphasized
+                      ? 'absolute left-[var(--space-5)] top-[var(--space-5)] text-[var(--selected-ink)]'
+                      : 'mr-[var(--space-4)] shrink-0 text-[var(--accent)]'
+                  }
                 >
                   <HierarchyMarker synthetic={node.kind !== 'person'} />
                 </span>
 
                 <div
-                  className={`${emphasized ? 'selected-panel__content flex-col gap-[var(--space-2)] pr-12' : `min-h-8 flex-row items-center gap-[var(--space-1)] pl-12${node.children.length > 0 ? ' pr-12' : ''}`} flex min-w-0`}
+                  className={`${emphasized ? 'selected-panel__content flex-col gap-[var(--space-2)] pr-12' : `min-h-8 flex-1 flex-row items-center gap-[var(--space-1)]${node.children.length > 0 ? ' pr-12' : ''}`} flex min-w-0`}
                 >
                   <Link
                     className={`section-title bidi-isolate text-current no-underline${emphasized ? ' w-fit max-w-full' : ' max-w-[36%] shrink-0'}`}
@@ -474,6 +480,11 @@ export function Tree({
                       toggleBranch(node.id);
                     }}
                     tabIndex={-1}
+                    style={{
+                      top: emphasized
+                        ? 'var(--space-5)'
+                        : 'calc((var(--row-height) - var(--status-pill-height)) / 2)',
+                    }}
                     type="button"
                   >
                     <BranchChevron expanded={expanded} />
@@ -504,20 +515,48 @@ export function Tree({
   }
 
   return (
-    <section className="flex flex-col gap-[var(--space-4)]" aria-labelledby="organization-tree-title">
-      <div className="flex flex-wrap items-center justify-between gap-[var(--space-3)]">
+    <section
+      className="flex flex-col gap-[var(--space-4)]"
+      aria-labelledby="organization-tree-title"
+      style={{
+        width: '100%',
+        padding: 'var(--space-4)',
+        border: 'var(--rule) solid var(--divider)',
+        borderRadius: 'var(--radius-panel)',
+      }}
+    >
+      <div
+        className="flex flex-wrap items-center justify-between gap-[var(--space-3)]"
+        style={{
+          minHeight: 'var(--status-pill-height)',
+          padding: 'var(--space-2) var(--space-2) var(--space-4)',
+          borderBottom: 'var(--rule) solid var(--divider)',
+        }}
+      >
         <h2 className="section-title" id="organization-tree-title">
           Organization
         </h2>
         <div className="flex flex-wrap gap-[var(--space-2)]" aria-label="Tree view controls">
-          <button className="outline-action" onClick={expandAll} type="button">
+          <button
+            className="outline-action"
+            onClick={expandAll}
+            type="button"
+          >
             Expand all
           </button>
-          <button className="outline-action" onClick={collapseAll} type="button">
+          <button
+            className="outline-action"
+            onClick={collapseAll}
+            type="button"
+          >
             Collapse all
           </button>
-          <button className="outline-action" onClick={resetDepthTwo} type="button">
-            Reset to depth 2
+          <button
+            className="outline-action"
+            onClick={resetDepthTwo}
+            type="button"
+          >
+            Restore default view
           </button>
         </div>
       </div>

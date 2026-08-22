@@ -32,7 +32,7 @@
  *
  * @see planning/build.md F4 — full reporting line to the root
  * @see planning/build.md F6 — action-first record findings
- * @see planning/build.md §F.2 — null tiers and direct-report cap
+ * @see planning/build.md §F.2 — critical and informational null tiers
  * @see planning/build.md §H.3 — person, synthetic, filtering, and mobile cards
  * @see planning/design.md §9.4 — locked person-card visual treatment
  */
@@ -40,9 +40,6 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { DataIssue, OrgNode } from '@/domain/types';
-
-/** Maximum direct reports rendered before the specified reveal disclosure. */
-const VISIBLE_REPORT_LIMIT = 15;
 
 /** One ancestor already resolved by `page.tsx`, ordered from root to parent. */
 export type ReportingLineEntry = {
@@ -94,9 +91,34 @@ function CriticalValue({ value, label }: { value: string | null; label: string }
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
-      <dt className="field-label">{label}</dt>
+      <dt
+        className="field-label"
+        style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+      >
+        {label}
+      </dt>
       <dd className="min-w-0">{children}</dd>
     </div>
+  );
+}
+
+/** Compact disclosure chevron for the direct-reports summary. */
+function DisclosureChevron() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180"
+      fill="none"
+      viewBox="0 0 16 16"
+    >
+      <path
+        d="m4 6 4 4 4-4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
   );
 }
 
@@ -113,7 +135,14 @@ function RecordFindings({ issues }: { issues: DataIssue[] }) {
   if (recordIssues.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="person-integrity-title">
+    <section
+      className="flex flex-col gap-[var(--space-3)]"
+      aria-labelledby="person-integrity-title"
+      style={{
+        paddingTop: 'var(--space-4)',
+        borderTop: 'var(--rule) solid var(--divider)',
+      }}
+    >
       <h3 className="section-title" id="person-integrity-title">
         Data integrity
       </h3>
@@ -162,7 +191,9 @@ export function PersonCard({
 
   if (node === null) {
     return (
-      <article className="surface-card flex flex-col gap-[var(--space-3)]">
+      <article
+        className="surface-card flex flex-col gap-[var(--space-3)]"
+      >
         <h2 className="section-title">Selection unavailable</h2>
         <p className="body-copy text-[var(--ink-secondary)]">
           Choose a person or manager from the organization tree.
@@ -174,8 +205,6 @@ export function PersonCard({
   const selectedNode: OrgNode = node;
   const person = selectedNode.person;
   const manager = reportingLine.at(-1) ?? null;
-  const visibleReports = selectedNode.children.slice(0, VISIBLE_REPORT_LIMIT);
-  const remainingReports = selectedNode.children.slice(VISIBLE_REPORT_LIMIT);
 
   /**
    * Render a linked direct-report row. Full facts stay on the selected node;
@@ -184,7 +213,7 @@ export function PersonCard({
   function reportRow(report: OrgNode) {
     return (
       <Link
-        className="recessed-row body-copy bidi-isolate justify-between gap-[var(--space-3)] no-underline"
+        className="direct-report-link recessed-row body-copy bidi-isolate justify-between gap-[var(--space-3)] no-underline"
         href={personHref(report.id)}
         key={report.id}
         scroll={false}
@@ -195,7 +224,7 @@ export function PersonCard({
     );
   }
 
-  /** Render the first fifteen reports and the native remainder disclosure. */
+  /** Render the complete direct-report list inside its owning disclosure. */
   function reportList() {
     if (selectedNode.children.length === 0) {
       return <p className="body-copy text-[var(--ink-secondary)]">No direct reports</p>;
@@ -203,17 +232,7 @@ export function PersonCard({
 
     return (
       <div className="flex flex-col gap-[var(--space-2)]">
-        {visibleReports.map(reportRow)}
-        {remainingReports.length > 0 ? (
-          <details className="group">
-            <summary className="outline-action w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-              Show {remainingReports.length} more
-            </summary>
-            <div className="mt-[var(--space-2)] flex flex-col gap-[var(--space-2)]">
-              {remainingReports.map(reportRow)}
-            </div>
-          </details>
-        ) : null}
+        {selectedNode.children.map(reportRow)}
       </div>
     );
   }
@@ -223,6 +242,20 @@ export function PersonCard({
       aria-labelledby="person-card-title"
       className="surface-card flex flex-col gap-[var(--space-4)]"
     >
+      <style>{`
+        .direct-report-link {
+          transition:
+            background-color 150ms ease,
+            color 150ms ease,
+            transform 150ms ease;
+        }
+
+        .direct-report-link:hover {
+          background: var(--badge-soft);
+          color: var(--selected);
+          transform: translateX(var(--space-1));
+        }
+      `}</style>
       {mobileDismissEnabled ? (
         <button
           className="outline-action w-fit md:hidden"
@@ -260,7 +293,14 @@ export function PersonCard({
 
       {person === null ? (
         <>
-          <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="synthetic-reports-title">
+          <section
+            className="flex flex-col gap-[var(--space-3)]"
+            aria-labelledby="synthetic-reports-title"
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: 'var(--rule) solid var(--divider)',
+            }}
+          >
             <h3 className="section-title" id="synthetic-reports-title">
               Attached reports
             </h3>
@@ -270,7 +310,13 @@ export function PersonCard({
         </>
       ) : (
         <>
-          <dl className="grid grid-cols-1 gap-[var(--space-4)] sm:grid-cols-2">
+          <dl
+            className="grid grid-cols-1 gap-[var(--space-4)] sm:grid-cols-2"
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: 'var(--rule) solid var(--divider)',
+            }}
+          >
             <DetailField label="Job title">
               <CriticalValue label="job title" value={person.jobTitle} />
             </DetailField>
@@ -303,32 +349,88 @@ export function PersonCard({
             </DetailField>
           </dl>
 
-          <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="reporting-line-title">
+          <section
+            className="flex flex-col gap-[var(--space-3)]"
+            aria-labelledby="reporting-line-title"
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: 'var(--rule) solid var(--divider)',
+            }}
+          >
             <h3 className="section-title" id="reporting-line-title">
               Reporting line
             </h3>
             <nav aria-label={`Reporting line for ${selectedNode.displayName}`}>
-              <ol className="flex flex-wrap items-center gap-[var(--space-2)]">
-                {reportingLine.map((entry) => (
-                  <li className="flex items-center gap-[var(--space-2)]" key={entry.id}>
-                    <Link
-                      className="body-copy bidi-isolate"
-                      href={personHref(entry.id)}
-                      scroll={false}
-                    >
-                      {entry.displayName}
-                    </Link>
-                    <span aria-hidden="true">→</span>
+              <ol className="flex flex-col">
+                {[
+                  ...reportingLine.map((entry) => ({ ...entry, current: false })),
+                  { id: selectedNode.id, displayName: selectedNode.displayName, current: true },
+                ].map((entry, index, chain) => (
+                  <li
+                    className="relative flex min-w-0 items-start gap-[var(--space-3)] pb-[var(--space-3)] last:pb-0"
+                    key={entry.id}
+                  >
+                    {index < chain.length - 1 ? (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: 'absolute',
+                          top: '14px',
+                          bottom: 0,
+                          left: '7px',
+                          width: 'var(--rule)',
+                          background: 'var(--accent)',
+                        }}
+                      />
+                    ) : null}
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: 'relative',
+                        zIndex: 1,
+                        width: '15px',
+                        height: '15px',
+                        flex: '0 0 15px',
+                        marginTop: '12px',
+                        border: entry.current ? '0' : '2px solid var(--accent)',
+                        borderRadius: '50%',
+                        background: entry.current ? 'var(--selected)' : 'var(--surface)',
+                      }}
+                    />
+                    {entry.current ? (
+                      <span
+                        aria-current="page"
+                        className="recessed-row body-strong bidi-isolate flex-1"
+                        style={{
+                          background: 'var(--selected)',
+                          color: 'var(--selected-ink)',
+                        }}
+                      >
+                        {entry.displayName}
+                      </span>
+                    ) : (
+                      <Link
+                        className="direct-report-link recessed-row body-copy bidi-isolate flex-1 no-underline"
+                        href={personHref(entry.id)}
+                        scroll={false}
+                      >
+                        {entry.displayName}
+                      </Link>
+                    )}
                   </li>
                 ))}
-                <li className="body-strong bidi-isolate" aria-current="page">
-                  {selectedNode.displayName}
-                </li>
               </ol>
             </nav>
           </section>
 
-          <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="manager-title">
+          <section
+            className="flex flex-col gap-[var(--space-3)]"
+            aria-labelledby="manager-title"
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: 'var(--rule) solid var(--divider)',
+            }}
+          >
             <h3 className="section-title" id="manager-title">
               Manager
             </h3>
@@ -346,12 +448,33 @@ export function PersonCard({
             )}
           </section>
 
-          <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="direct-reports-title">
-            <h3 className="section-title" id="direct-reports-title">
-              Direct reports · {selectedNode.directReports}
-            </h3>
-            {reportList()}
-          </section>
+          <details
+            className="group"
+            style={{
+              paddingTop: 'var(--space-4)',
+              borderTop: 'var(--rule) solid var(--divider)',
+            }}
+          >
+            <summary
+              className="recessed-row cursor-pointer justify-between gap-[var(--space-3)] [&::-webkit-details-marker]:hidden"
+              id="direct-reports-title"
+            >
+              <span className="section-title">Direct reports</span>
+              <span
+                className="flex items-center gap-[var(--space-2)]"
+                style={{ color: 'var(--ink)' }}
+              >
+                <span className="body-strong">{selectedNode.directReports}</span>
+                <DisclosureChevron />
+              </span>
+            </summary>
+            <section
+              className="mt-[var(--space-2)]"
+              aria-labelledby="direct-reports-title"
+            >
+              {reportList()}
+            </section>
+          </details>
 
           <RecordFindings issues={recordIssues} />
         </>

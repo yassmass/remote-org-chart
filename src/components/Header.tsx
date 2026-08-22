@@ -7,12 +7,12 @@
  * boundary. It performs no snapshot selection, network I/O, token access, URL
  * parsing, or refresh action.
  *
- * The visual mapping is fixed by design.md §9.1. The product eyebrow and
- * company name occupy Remote's editorial heading tier; capture information is
- * plain supporting copy rather than a badge or diagnostics panel. When the
- * generated edge-case snapshot is selected, the exact disclosure from
- * build.md §D.5 remains textual and persistent so color is never its only
- * signal.
+ * The visual mapping extends design.md §9.1 with the reviewed header treatment:
+ * a compact company mark and the identity copy sit on Remote's existing
+ * selected-maroon surface, while capture information remains plain supporting
+ * copy rather than a badge or diagnostics panel. When the generated edge-case
+ * snapshot is selected, the exact disclosure from build.md §D.5 remains
+ * textual and persistent so color is never its only signal.
  *
  * @see planning/build.md §D.5 — source-specific disclosure and capture copy
  * @see planning/build.md F7 — absolute and relative capture age on every view
@@ -49,6 +49,47 @@ export type HeaderProps = {
  * customer data.
  */
 const FIXTURE_DISCLOSURE = 'Demo data — synthetic fixture, not real company data';
+
+/**
+ * Render the bounded gradient company mark from the approved header reference.
+ *
+ * The mark is decorative because the adjacent heading already supplies the
+ * accessible company identity. Its gradient is confined to the SVG content;
+ * it does not introduce a reusable application accent or background effect.
+ */
+function CompanyMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="company-mark"
+      focusable="false"
+      height="40"
+      viewBox="0 0 48 48"
+      width="40"
+    >
+      <defs>
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          id="company-mark-gradient"
+          x1="2"
+          x2="46"
+          y1="42"
+          y2="6"
+        >
+          <stop offset="0" stopColor="#e03d5c" />
+          <stop offset="0.52" stopColor="#df4e72" />
+          <stop offset="1" stopColor="#b96de8" />
+        </linearGradient>
+      </defs>
+      <g fill="url(#company-mark-gradient)">
+        <path d="M20 2A22 22 0 0 0 2 20h10a12 12 0 0 1 8-8V2Z" />
+        <path d="M28 2v10a12 12 0 0 1 8 8h10A22 22 0 0 0 28 2Z" />
+        <path d="M46 28H36a12 12 0 0 1-8 8v10a22 22 0 0 0 18-18Z" />
+        <path d="M20 46V36a12 12 0 0 1-8-8H2a22 22 0 0 0 18 18Z" />
+      </g>
+    </svg>
+  );
+}
 
 /**
  * Resolve a locale that the current JavaScript runtime can format.
@@ -115,8 +156,8 @@ function formatRelativeCapture(captured: Date, now: Date, locale: string): strin
  * Invalid timestamps are handled as a named unavailable state instead of
  * leaking `Invalid Date` into the interface or throwing during server render.
  * The company name is isolated for bidirectional text because it originates in
- * the source system. No logo, navigation, refresh control, or diagnostics term
- * is introduced here; each is explicitly excluded by the locked artifacts.
+ * the source system. The company mark is decorative and fixed; no navigation,
+ * refresh control, or diagnostics term is introduced here.
  *
  * @param props selected snapshot identity and request-local formatting context
  * @returns the editorial header required above the toolbar and tree
@@ -128,20 +169,32 @@ export function Header({ companyName, capturedAt, source, locale }: HeaderProps)
   const hasValidCapture = !Number.isNaN(captureInstant.getTime());
 
   return (
-    <header className="flex flex-col gap-[var(--space-3)]" aria-labelledby="org-chart-title">
-      <p className="eyebrow">Organizational chart</p>
-      <h1 id="org-chart-title" className="display-heading bidi-isolate">
-        {companyName}
-      </h1>
+    <header
+      className="brand-header selected-panel"
+      aria-labelledby="org-chart-title"
+      style={{ minHeight: 'auto' }}
+    >
+      <div className="brand-header__identity">
+        <p className="eyebrow text-[var(--selected-ink-muted)]">Organizational chart</p>
+        <div className="brand-header__company">
+          <CompanyMark />
+          <h1
+            id="org-chart-title"
+            className="display-heading bidi-isolate text-[var(--selected-ink)]"
+          >
+            {companyName}
+          </h1>
+        </div>
+      </div>
       {source === 'synthetic_fixture' ? (
         <p
-          className="micro-copy border-l-[var(--rule)] border-[var(--warning-border)] bg-[var(--warning-surface)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--warning-ink)]"
+          className="brand-header__disclosure micro-copy border-l-[var(--rule)] border-[var(--warning-border)] bg-[var(--warning-surface)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--warning-ink)]"
           role="status"
         >
           {FIXTURE_DISCLOSURE}
         </p>
       ) : null}
-      <p className="micro-copy text-[var(--ink-secondary)]">
+      <p className="brand-header__capture micro-copy text-[var(--selected-ink-muted)]">
         {hasValidCapture ? (
           <>
             Data captured{' '}
