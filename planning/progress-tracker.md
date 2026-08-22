@@ -254,7 +254,7 @@ Two obligations now inherited by later phases, both recorded so they are not red
 
 ---
 
-## Current Working Session — Session 5 · P2a complete
+## Session 5 — P2a complete
 
 **Module:** P2a — the domain's assembly half, plus the test runner
 **Task Ref:** `delivery.md` §4 P2a · §2 "Toolchain" · flag 1 from the pre-execution review
@@ -332,13 +332,83 @@ Re-run rather than taken on report: `pnpm lint` and `pnpm typecheck` clean, 42 r
 
 ---
 
+## Current Working Session — Session 6 · P3 in progress
+
+**Module:** P3 — the edge-case fixture, the bake, and the domain test layer
+**Task Ref:** `delivery.md` §4 P3 · §5 fixture manifest · §I.1
+**Status:** **In progress.** Fixture, bake and all five missing domain suites written; **146 tests across 8 files green**, `pnpm typecheck` and `pnpm lint` clean. The `lib/` suites and the two P2a extensions remain
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.7 · `delivery.md` 1.7 — **unamended.** Four defects raised against them are recorded below as *raised, not landed*
+
+### What Was Done
+
+**P2b was skipped by instruction**, not by oversight, so the README's architecture and out-of-scope sections remain outstanding and P6 now carries them unless P2b is picked up separately.
+
+| File | Notes |
+|---|---|
+| `fixtures/edge-cases.json` | 49 array elements — 47 employments plus the two malformed elements §5 requires. A **bare array of raw records**, which is what `ingest(raw: readonly unknown[])` accepts; the disagreeing control total lives in the bake, since a raw record array has nowhere to carry provenance |
+| `scripts/bake-fixture.ts` | The same pipeline `scripts/sync.ts` composes, in the same order, over the fixture. Writes `fixtures/edge-cases.snapshot.json` |
+| `fixtures/edge-cases.snapshot.json` | Generated, committed, never hand-edited |
+| `src/domain/__tests__/ledger.test.ts` | 14 tests. §3's six locked strings verbatim; scope, severity and owner per code |
+| `src/domain/__tests__/normalize.test.ts` | 19 tests. The projection field-by-field; `isDeparted`'s three signals each asserted **in isolation** |
+| `src/domain/__tests__/resolve-edges.test.ts` | 26 tests. The four rungs; rule 1 exclusivity; the merge over 120 shuffles |
+| `src/domain/__tests__/break-cycles.test.ts` | 20 tests. Loops of length 1, 2 and 3; the deterministic cut over 120 shuffles |
+| `src/domain/__tests__/reconcile.test.ts` | 21 tests. The three checks and the conservation law — which raise a code and which throw |
+| `package.json` | `bake:fixture` added; `test` becomes `pnpm bake:fixture && vitest run`, discharging the first obligation Session 5 left to P3 |
+
+**The fixture's measured output, since every later assertion is stated against these numbers:** 49 walked · 46 placed · 3 quarantined · 13 findings · **all six §F.1 codes present** · 2 external nodes from 3 rung-3 records · 2 unresolved placeholders · 8 roots · `maxDepth` 9 · `principalRootId` = `emp-001` · `deletedCount` 1 · `listTotalCount` 49 against an expected 48, so `countReconciled` is false and `COUNT_MISMATCH` has its instance.
+
+**All five hashed collections now hold at least two elements**, which is the §G.3 fixture obligation in full for the first time — see G-17 below for the one that did not.
+
+**Checklist items verified rather than assumed.** Item 5a: `pnpm bake:fixture` run twice writes once, reports *content hash unchanged* on the second, and leaves no `git diff`. Item 2: the secret and email scan returns clean across both `data/` and `fixtures/`, including the new files. The serialized fixture snapshot carries no key matching `/email/i` despite four email keys being present in the raw input, so the strip is asserted against input that actually exercises it.
+
+**All three shuffle assertions delivery.md §2 requires now exist**: the external-manager merge and the deterministic cycle cut landed this session, and root/child ordering with an unchanged `principalRootId` was already in `build-forest.test.ts` from P2a. Verified by reading that file rather than taken from the Session 5 note.
+
+### Mid-Session Decisions
+
+- **`bake:fixture` was written second, before any test module, and the reason is a dependency rather than a preference.** Three things forced it: `filterForest` and `buildForest` consume the *baked* form, so assembly-level assertions against `MGR_EXTERNAL`, `MGR_DANGLING` and `CYCLE_BROKEN` have no input until it exists; `pnpm test` runs the bake first, so tests landing ahead of it would break the command on its first run; and baking before asserting means a defect in `resolve-edges.ts` or `break-cycles.ts` surfaces as an artifact to inspect rather than as a failing assertion I might "fix" by weakening the assertion.
+- **The `domain/` lint boundary governs domain *tests* too, and the first draft of `normalize.test.ts` violated it.** It imported `node:fs` and `@/lib/ingest` to assert `normalize` is total over the fixture. Both are forbidden under `src/domain/**/*.ts`. The existing P2a suites had already shown the correct pattern — a JSON import, never a file read — and the totality assertion moves to `src/lib/__tests__/ingest.test.ts`, where the parse and `normalize` may both be imported legally. **The boundary caught a real violation in the first file that tried to cross it**, which is the argument for it being a lint rule rather than a convention.
+- **Every domain suite asserts against two input sources, deliberately.** Records constructed for one rule alone, because a rule checked against a fixture that simultaneously exercises four other rules passes because of what the data happened to contain — and keeps passing once the rule breaks in a way the data does not reach. Then `fixtures/edge-cases.snapshot.json` for the fixture-level claims, because that file is the literal output of `pnpm bake:fixture` and is what `?source=fixture` serves, so those assertions cover the shipped artifact rather than a re-execution of the same code.
+- **`ledger.test.ts` transcribes delivery.md §3 a second time rather than importing the module's table.** `ISSUE_SPECS` is module-private precisely so nothing can read a severity and act on it; a test that imported it would assert the module agrees with itself. The transcription is typed `Record<IssueCode, ExpectedSpec>`, so a seventh code added to the union is a **compile error** here rather than a missing test — which is the difference between a closed set and a set that happens to have six members today.
+- **`isDeparted`'s branches are exercised by `Person` objects built inline, not by new fixture records.** The rule is a pure function of three fields, §5 names no record for the lifecycle-only or user-status-only cases, and inflating a committed fixture to reach a predicate would be the wrong instrument. The fixture carries the three raw signals; the rule stays under test.
+
+### Specification Defects Raised — **not yet landed**
+
+The document hierarchy at the head of this file is explicit: a decision recorded only here is a decision missing from `build.md`. **All four below are therefore open, not closed**, and P3 cannot be marked done until they land in `delivery.md`. Continuing the G-n numbering from Session 5.
+
+| # | Defect | Proposed resolution | Status |
+|---|---|---|---|
+| G-17 | **`externalManagers` was a one-element collection under §5 as written**, which `build.md` §G.3 forbids: "each collection needs at least two elements in the fixture, or the sort is asserted by a case that cannot be misordered". `emp-007` and `emp-008` merge into one node *by design*, so the manifest's two rung-3 records produce one element. Session 4 supplied the second element for `unresolvedManagers` (G-3) and for `issues` (G-4); this collection was missed for the same reason it is easy to miss — the merge is the feature | Add `emp-047`, no manager id, manager `"Marcus Chen"`. Implemented in the fixture; `delivery.md` §5 needs the row | Raised |
+| G-18 | **§5's 15-cap row is off by one.** It gives `emp-021`–`emp-036` as "16 direct reports… rendering *show 1 more*", but `emp-003`'s own row also fixes it as `manager emp-002`. That node therefore has **17** children | Both rows implemented literally, since crossing the cap is what the row exists for. §5's parenthetical should read *show 2 more* | Raised |
+| G-19 | **The duplicate-name row names only one of the two records it needs.** `emp-015` is fixed as `full_name: "Alan Turing"`, but a duplicate requires a partner and §5 names none | The name assigned to `emp-021`, whose only stated role is being one of the sixteen — the least-constrained record available, so nothing else shifts. §5 needs the second holder named | Raised |
+| G-20 | **No file on the manifest owns `RECORD_INVALID`'s test.** `build.md` §I.1 sites it "with the parse in `lib/ingest.ts`", but `delivery.md` §2's test table lists only `schemas.contract`, `projection` and `snapshot-writer` under `src/lib/__tests__/` | Add `src/lib/__tests__/ingest.test.ts` to §2. It also inherits the `normalize` totality assertion the domain boundary displaced | Raised |
+
+**Two smaller notes, neither a defect.** `emp-004`'s §5 row reads "Depth 4; **maxDepth**", which was true before the nine-link chain row was added; `maxDepth` is now 9 and owned by that chain. And `build.md` §D.4's null-`listTotalCount` branch exists in `reconcile.ts` but §D.4 calls it a re-plan condition rather than a runtime state — the test asserts only that the branch does not throw, never that it is a state the product renders.
+
+### One Decision Originated, Awaiting Confirmation
+
+**`company.name` for the fixture is `'Edge Case Fixture'`** (`scripts/bake-fixture.ts`). No document fixes it: the real path reads the company name from `/v1/identity/current`, there is no identity call in the bake, and no raw record carries one. It renders in the header beside the amber demo band, so it is deliberately unmistakable. The company **id** is not originated — it is read from the records, mirroring §D.5's rule that identity comes from the data rather than from a literal. A one-line change if a different string is preferred.
+
+### Next Step
+
+P3, in this order:
+
+1. **Extend the two P2a suites onto the baked fixture** — the second obligation Session 5 left to P3. `build-forest.test.ts` and `filter.test.ts` currently run against the real snapshot plus hand-built `OrgSnapshot`s; the fixture is where `MGR_EXTERNAL`, `MGR_DANGLING` and `CYCLE_BROKEN` have instances, and where the unresolved-placeholder display form G-12 settled is exercised at all.
+2. **`src/lib/__tests__/`**: `ingest.test.ts` (G-20, carrying `RECORD_INVALID` and the displaced totality assertion), `schemas.contract.test.ts` over every file in `fixtures/captured/`, `projection.test.ts`, `snapshot-writer.test.ts`.
+3. **Land G-17 through G-20 in `delivery.md`**, and bump both documents. P3 is not done until this happens — three of the four are already implemented in code, which is the wrong direction and is why it is named as a step rather than a formality.
+
+**Not started, and outstanding from earlier phases:** P2b's README sections, and P4a's two inherited `layout.tsx` obligations — the `X-Robots-Tag: noindex` header and the document title, still the scaffold's *Create Next App*.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **P3 part 1 — fixture, bake, and the domain test layer** (`delivery.md` §4) | In progress. `fixtures/edge-cases.json` (49 elements), `scripts/bake-fixture.ts`, the generated `fixtures/edge-cases.snapshot.json`, and the five missing domain suites — `ledger`, `normalize`, `resolve-edges`, `break-cycles`, `reconcile`. **146 tests across 8 files green**, `typecheck` and `lint` clean. `pnpm test` now bakes first, so a stale served fixture fails CI. All six §F.1 codes fire on the fixture, all five hashed collections hold two or more elements, and all three §2 shuffle assertions exist. Checklist 5a and item 2 both verified. Four defects raised against `delivery.md` §5 and §2 — G-17 the one-element `externalManagers` collection, G-18 the off-by-one cap arithmetic, G-19 the unnamed duplicate-name partner, G-20 the unowned `RECORD_INVALID` test — **all four still open**, since neither document has been amended. `lib/` suites and the two P2a extensions remain. |
 | 2026-08-22 | **P2a complete — domain assembly half + test runner** (`delivery.md` §4) | ✅ `build-forest.ts`, `filter.ts`, `vitest.config.mts`, and both domain suites. **30 tests green**, `typecheck` and `lint` clean with the `domain/` boundary rule active. Definition of done asserted: 42 roots / 191 nodes / `maxDepth` 4 from the real snapshot, `principalRootId` naming a person root with 112 descendants. Vitest sealed with its tests rather than empty, satisfying Session 4's objection; `bake:fixture` correctly left to P3, its input being a P3 deliverable. Two specification defects found (G-12 unresolved-placeholder display name, G-13 the `?dept=` encoding), neither originated in code; three more were raised on review (G-14 department identity, G-15 the fold's three implementations, G-16 the unowned department menu). All three landed in `build.md` 1.6 / `delivery.md` 1.6 — **G-12 against my proposed resolution**, since one placeholder exists per distinct missing manager id and a constant label would make them indistinguishable. Code amended to match across both rounds; `domain/fold.ts` extracted as the fold's single owner and `departmentOptions()` added, unblocking P4a. Gate re-run after the manifest moved: 46 tests green. |
 | 2026-08-22 | **P1a complete — sync path + domain resolution** (`delivery.md` §4) | ✅ All 11 files. `pnpm sync` writes 191 people / 191 edges / 42 issues at 4 API calls over 2 pages; `terminalCursorReached` and `countReconciled` both true; re-run is a no-op. **§G.2 identity settled exact** (191 = 191 − 0), closing `build.md` Open items 1–3 and P2a's gate. Eleven specification defects found and closed (G-1…G-11), `build.md` → 1.5, `delivery.md` → 1.5. Vitest deferred to P3 with the verification gap stated. |
-| 2026-08-22 | P1a part 1 — sync path + domain resolution (`delivery.md` §4) | 🟡 Superseded. 5 of 10 files written, typechecked and lint-clean: `schemas.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`. Schemas verified against all three captured fixtures — 100/100 records parse both stages, 15 projected keys, `country` reduced to two leaves, zero `/email/i` keys surviving. `zod@4.4.3` and `tsx@4.23.12` added. |
+| 2026-08-22 | P1a part 1 — sync path + domain resolution (`delivery.md` §4) | Superseded. 5 of 10 files written, typechecked and lint-clean: `schemas.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`. Schemas verified against all three captured fixtures — 100/100 records parse both stages, 15 projected keys, `country` reduced to two leaves, zero `/email/i` keys surviving. `zod@4.4.3` and `tsx@4.23.12` added. |
 | 2026-08-22 | Specification amended for the sync/render split | ✅ `build.md` → 1.3, `delivery.md` → 1.3. §G.1's Domain row placed graph resolution at render while §G.3 sorted `edges` and `issues` before writing — irreconcilable. Resolution moved to sync, because `countReconciled` and `contentHash` are fields of the snapshot and cannot be recorded by a check that ran after it existed. Consequences propagated: the system diagram gains a second domain box and corrects 3 requests to 4; §H.2's tree marks which half each module runs in; P1a absorbs five domain modules and P2a keeps two; four `delivery.md` signatures corrected against what `build.md` determines. New: the generated `fixtures/edge-cases.snapshot.json` with the raw fixture retained as the test input, `scripts/bake-fixture.ts`, and `pnpm bake:fixture` running under `test` so a stale bake fails CI. `contentHash` now excludes `capturedAt`, without which the no-`git diff` SLO was false. Third documentation defect fixed: `build.md` had promised a revision history since 1.1 and still had none, and the deferred Stage B strings were recorded in no document — both now under **Open against this document**. |
 | 2026-08-22 | H0 — Contract spike (`delivery.md` §1) | ✅ Complete. All 4 gates pass. Email-inference cut stays shut (0%). Count reconciliation deferred to H1 by design (single page < company size). `fixtures/captured/{identity,employments-list,employments-bulk}.json` written, redacted, secret-scan clean. One doc-vs-reality finding recorded: undocumented `manager_id` field on the bulk Employment object. |
 | 2026-08-22 | H0 findings validated independently | ✅ All figures re-derived from the committed fixtures. Three corrections to the session record: `manager_id` is a `user_id`-space field with one distinct value across the seed, so it would silently collapse the graph rather than being merely unused; `termination_date` is present on bulk (second contract correction, behaviourally redundant); the email-inference figure is 0 in the stronger sense that `manager_email` is never the sole route to a parent. |

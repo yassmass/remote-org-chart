@@ -1,6 +1,6 @@
 # Org Chart — Delivery Plan
 
-**Version:** 1.7 · amended 2026-08-22 during P2a. Revision history at the foot of this document. Tracks `build.md` 1.7.
+**Version:** 1.8 · amended 2026-08-22 during P3. Revision history at the foot of this document. Tracks `build.md` 1.8.
 
 **Companion to `build.md`.** That document is the single source of truth for *what the system is*. This one is the single source of truth for *what gets written, in what order, and how you know it is finished*.
 
@@ -107,6 +107,7 @@ Split by which side of the snapshot the module runs on (`build.md` §H.2). The r
 | `src/domain/__tests__/*.test.ts` | §I.1 | One file per domain module — the six code tests, conservation, rung exclusivity, and the **three** shuffle assertions: external-manager merge, deterministic cycle cut, and root/child ordering including an unchanged `principalRootId` |
 | `src/lib/__tests__/schemas.contract.test.ts` | §I.1 | The contract layer: `schemas.ts` parsed against every file in `fixtures/captured/`. Lives beside `lib/` because that is where the schemas live |
 | `src/lib/__tests__/projection.test.ts` | §I.1, NFR 4 | The `country` two-leaf assertion, and the no-`/email/i`-key assertion over a serialized snapshot |
+| `src/lib/__tests__/ingest.test.ts` | §I.1, §D.2 | The two-stage parse and `RECORD_INVALID` — the code §I.1 sites here rather than in `domain/`, and which no manifest file owned |
 | `src/lib/__tests__/snapshot-writer.test.ts` | §I.1, §G.3 | The `contentHash` determinism assertion — same records, different arrival order, byte-identical hash. It lives here because it exercises `snapshot-writer.ts`; P3 requires it and no file on this manifest previously owned it |
 
 ### Toolchain — governed by P1b
@@ -181,12 +182,13 @@ What survives from the old note is the part that mattered: the domain remains te
 | `emp-001` Ada Lovelace · CEO · Executive · no manager fields | `ROOT_NO_MANAGER`; the principal root |
 | `emp-002` · manager `emp-001` | Clean rung-1 edge |
 | `emp-003` · manager `emp-002` | Depth 3 |
-| `emp-004` · manager `emp-003` | Depth 4; `maxDepth` |
+| `emp-004` · manager `emp-003` | Depth 4 |
 | `emp-005` · manager `emp-003` · `department: null` | Critical-null `Missing` marker; the Unassigned bucket |
 | `emp-006` · `manager_employment_id: "emp-999"` **and** a populated manager name | `MGR_DANGLING`, and rung 2's precedence over rung 3 |
 | `emp-046` · `manager_employment_id: "emp-998"` · no manager name | A **second distinct** missing manager id, so `unresolvedManagers` holds two elements and §G.3's sort over it can actually be wrong |
 | `emp-007` · no manager ID · manager `"Sofia Reyes"` | `MGR_EXTERNAL` |
 | `emp-008` · no manager ID · manager `" sofia  reyes "` | Merges with `emp-007` into one node — normalization and order-independence |
+| `emp-047` · no manager ID · manager `"Marcus Chen"` | A **second** external manager. `emp-007`/`emp-008` merge by design, which left `externalManagers` at length 1 and its §G.3 sort untestable |
 | `emp-009` · manager `emp-009` | `CYCLE_BROKEN`, loop length 1. Asserts `basis === 'cycle_broken'` and **no** `ROOT_NO_MANAGER` |
 | `emp-010` ⇄ `emp-011` | `CYCLE_BROKEN`, loop length 2; deterministic lowest-ID cut; same two assertions |
 | `emp-012` · `full_name` absent | `RECORD_INVALID` with a readable ID |
@@ -194,13 +196,13 @@ What survives from the old note is the part that mattered: the domain remains te
 | *a second array element with no `id`* | Two findings sharing `(RECORD_INVALID, null)` — the case §G.3's third sort term exists for |
 | `emp-013` · `status: "offboarding"` · manages `emp-014` | Departed with a team — stays visible under the toggle |
 | `emp-014` · `status: "archived"` · no reports | Departed leaf — removed by the toggle |
-| `emp-015` · `full_name: "Alan Turing"` · different department | Duplicate-name disambiguation by `short_id` and department |
+| `emp-015` · `full_name: "Alan Turing"` · Mathematics | Duplicate-name disambiguation by `short_id` and department. The partner is `emp-021`, in Engineering — a duplicate needs two records, and this row named only one |
 | `emp-016` · `status: "quantum_probation"` | Unknown enum renders normally and raises **no** ledger row |
 | `emp-017` · `country: null` · `updated_at: null` | Informational-null em-dashes |
 | `emp-018` · name with RTL, emoji, and 90 characters | Bidi, wrapping, no truncation |
 | `emp-019` · `status: "deleted"` | Non-zero `deletedCount`; exercises the subtraction in §G.2 |
 | `emp-020` · no manager fields | Second root — the forest is genuinely a forest |
-| `emp-021`–`emp-036` · manager `emp-002` | 16 direct reports — crosses the 15-shown cap in §F.2, rendering "show 1 more" |
+| `emp-021`–`emp-036` · manager `emp-002` | 16 of `emp-002`'s **17** children — `emp-003` is the seventeenth — crossing the 15-shown cap in §F.2 to render "show 2 more". `emp-021` doubles as the duplicate-name partner below |
 | `emp-037`–`emp-045` · a nine-link chain under `emp-020` | Depth beyond 8 — the indentation cap, the container scroll, and the numeric depth on the node (§F.2). Without it that rule is the one row in §F.2 with no test |
 | `provenance.listTotalCount` set to disagree | `COUNT_MISMATCH`, the one `scope: 'sync'` code |
 
@@ -251,6 +253,7 @@ If the cut order reaches item 6 and time is still short, the correct move is to 
 
 | Version | Date | Change |
 |---|---|---|
+| **1.8** | 2026-08-22 | Tracks `build.md` 1.8. Four §5 defects closed against the built fixture: `externalManagers` was a one-element collection, which §G.3 forbids — `emp-007`/`emp-008` merge by design — so `emp-047` supplies the second; the 15-cap row was off by one, since `emp-003` is also a child of `emp-002`, making 17 children and "show 2 more"; the duplicate-name row named one record of the two it needs, and `emp-021` is now the partner; and `emp-004` no longer claims `maxDepth`, which the nine-link chain owns. §2 gains `ingest.test.ts` — §I.1 sites `RECORD_INVALID`'s test with the parse in `lib/`, and no manifest file owned it. |
 | **1.7** | 2026-08-22 | Tracks `build.md` 1.7. `domain/fold.ts` added to §2 as the single owner of the four-step fold, with `filter.ts`'s three-step search fold recorded as a deliberately different rule. `filter.ts` gains `departmentOptions()` — the menu half §H.3 required and no module owned, which was blocking P4a. |
 | **1.6** | 2026-08-22 | Tracks `build.md` 1.6. **P2a complete** — `buildForest` verified against the real snapshot: 42 roots, `maxDepth` 4, 191 people placed, `principalRootId` a person root, §G.3 ordering confirmed. §2 instantiates the two 1.6 decisions and pins the collator locale to `'en'`. |
 | **1.5** | 2026-08-22 | Tracks `build.md` 1.5. **P1a complete.** Six further specification defects closed during execution, each found by writing the code the clause governs: the `CYCLE_BROKEN` ledger cardinality (one row per cycle, not per member); the cycle cut's need for a display-name lookup, since edges carry ids alone; `ingest` returning the stage-one counts, without which §G.2's identity is unrecoverable for a quarantined record; the positional detail as a flat walk index rather than a page coordinate, because `walkBulk` flattens pages; §G.2's checks 1 and 3 and the conservation law throwing rather than raising a code, since none can fail on data; and §E.5's rate-limit ceiling measured at 1000 against a documented 300. |

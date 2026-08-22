@@ -1,0 +1,963 @@
+[
+  {
+    "id": "emp-001",
+    "short_id": "S-001",
+    "company_id": "fixture-company",
+    "full_name": "Ada Lovelace",
+    "job_title": "Chief Executive Officer",
+    "department": "Executive",
+    "department_id": "dept-exec",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": null,
+    "manager_employment_id": null,
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-002",
+    "short_id": "S-002",
+    "company_id": "fixture-company",
+    "full_name": "Grace Hopper",
+    "job_title": "VP Engineering",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United States",
+      "alpha_2_code": "US",
+      "code": "USA",
+      "supported_json_schemas": [
+        "address_details"
+      ]
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Ada Lovelace",
+    "manager_employment_id": "emp-001",
+    "updated_at": "2026-08-01T09:00:00Z",
+    "work_email": null,
+    "login_email": null,
+    "personal_email": null,
+    "manager_email": null,
+    "manager_id": "user-shared-0001",
+    "user_id": "user-shared-0001",
+    "termination_date": null,
+    "files": null
+  },
+  {
+    "id": "emp-003",
+    "short_id": "S-003",
+    "company_id": "fixture-company",
+    "full_name": "Katherine Johnson",
+    "job_title": "Director of Engineering",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-004",
+    "short_id": "S-004",
+    "company_id": "fixture-company",
+    "full_name": "Margaret Hamilton",
+    "job_title": "Staff Engineer",
+    "department": " product  design ",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-005",
+    "short_id": "S-005",
+    "company_id": "fixture-company",
+    "full_name": "Barbara Liskov",
+    "job_title": "Principal Engineer",
+    "department": null,
+    "department_id": null,
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-006",
+    "short_id": "S-006",
+    "company_id": "fixture-company",
+    "full_name": "Radia Perlman",
+    "job_title": "Network Architect",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Priya Nair",
+    "manager_employment_id": "emp-999",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-046",
+    "short_id": "S-046",
+    "company_id": "fixture-company",
+    "full_name": "Frances Allen",
+    "job_title": "Compiler Engineer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": null,
+    "manager_employment_id": "emp-998",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-007",
+    "short_id": "S-007",
+    "company_id": "fixture-company",
+    "full_name": "Jean Bartik",
+    "job_title": "Data Analyst",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Sofia Reyes",
+    "manager_employment_id": null,
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-008",
+    "short_id": "S-008",
+    "company_id": "fixture-company",
+    "full_name": "Betty Holberton",
+    "job_title": "Data Analyst",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": " sofia  reyes ",
+    "manager_employment_id": null,
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-047",
+    "short_id": "S-047",
+    "company_id": "fixture-company",
+    "full_name": "Mary Jackson",
+    "job_title": "Aerospace Engineer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Marcus Chen",
+    "manager_employment_id": null,
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-009",
+    "short_id": "S-009",
+    "company_id": "fixture-company",
+    "full_name": "Hedy Lamarr",
+    "job_title": "Head of Research",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Hedy Lamarr",
+    "manager_employment_id": "emp-009",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-010",
+    "short_id": "S-010",
+    "company_id": "fixture-company",
+    "full_name": "Annie Easley",
+    "job_title": "Rocket Scientist",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Dorothy Vaughan",
+    "manager_employment_id": "emp-011",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-011",
+    "short_id": "S-011",
+    "company_id": "fixture-company",
+    "full_name": "Dorothy Vaughan",
+    "job_title": "Head of Computing",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Annie Easley",
+    "manager_employment_id": "emp-010",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-012",
+    "short_id": "S-012",
+    "company_id": "fixture-company",
+    "job_title": "Engineer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Ada Lovelace",
+    "manager_employment_id": "emp-001",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-013",
+    "short_id": "S-013",
+    "company_id": "fixture-company",
+    "full_name": "Evelyn Boyd Granville",
+    "job_title": "Engineering Manager",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "offboarding",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Ada Lovelace",
+    "manager_employment_id": "emp-001",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-014",
+    "short_id": "S-014",
+    "company_id": "fixture-company",
+    "full_name": "Carol Shaw",
+    "job_title": "Game Designer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "archived",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Evelyn Boyd Granville",
+    "manager_employment_id": "emp-013",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-015",
+    "short_id": "S-015",
+    "company_id": "fixture-company",
+    "full_name": "Alan Turing",
+    "job_title": "Cryptanalyst",
+    "department": "Mathematics",
+    "department_id": "dept-math",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-016",
+    "short_id": "S-016",
+    "company_id": "fixture-company",
+    "full_name": "Sophie Wilson",
+    "job_title": "Chip Designer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "quantum_probation",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-017",
+    "short_id": null,
+    "company_id": "fixture-company",
+    "full_name": "Karen Sparck Jones",
+    "job_title": "Research Scientist",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": null,
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": null,
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": null
+  },
+  {
+    "id": "emp-018",
+    "short_id": "S-018",
+    "company_id": "fixture-company",
+    "full_name": "ندى الزهراء 🌍 Nada Al-Zahra ✨ An Extremely Long Display Name For Bidi And Wrapping Tests 🎯",
+    "job_title": "Localization Engineer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-019",
+    "short_id": "S-019",
+    "company_id": "fixture-company",
+    "full_name": "Adele Goldberg",
+    "job_title": "Language Designer",
+    "department": "Product Design",
+    "department_id": "dept-pd",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "deleted",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Katherine Johnson",
+    "manager_employment_id": "emp-003",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-020",
+    "short_id": "S-020",
+    "company_id": "fixture-company",
+    "full_name": "Shafi Goldwasser",
+    "job_title": "Chief Scientist",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": null,
+    "manager_employment_id": null,
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-021",
+    "short_id": "S-021",
+    "company_id": "fixture-company",
+    "full_name": "Alan Turing",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-022",
+    "short_id": "S-022",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 22",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-023",
+    "short_id": "S-023",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 23",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-024",
+    "short_id": "S-024",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 24",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-025",
+    "short_id": "S-025",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 25",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-026",
+    "short_id": "S-026",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 26",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-027",
+    "short_id": "S-027",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 27",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-028",
+    "short_id": "S-028",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 28",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-029",
+    "short_id": "S-029",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 29",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-030",
+    "short_id": "S-030",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 30",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-031",
+    "short_id": "S-031",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 31",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-032",
+    "short_id": "S-032",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 32",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-033",
+    "short_id": "S-033",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 33",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-034",
+    "short_id": "S-034",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 34",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-035",
+    "short_id": "S-035",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 35",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-036",
+    "short_id": "S-036",
+    "company_id": "fixture-company",
+    "full_name": "Team Member 36",
+    "job_title": "Software Engineer",
+    "department": "Engineering",
+    "department_id": "dept-eng",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Grace Hopper",
+    "manager_employment_id": "emp-002",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-037",
+    "short_id": "S-037",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 37",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-020",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-038",
+    "short_id": "S-038",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 38",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-037",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-039",
+    "short_id": "S-039",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 39",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-038",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-040",
+    "short_id": "S-040",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 40",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-039",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-041",
+    "short_id": "S-041",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 41",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-040",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-042",
+    "short_id": "S-042",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 42",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-041",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-043",
+    "short_id": "S-043",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 43",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-042",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-044",
+    "short_id": "S-044",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 44",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-043",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "id": "emp-045",
+    "short_id": "S-045",
+    "company_id": "fixture-company",
+    "full_name": "Chain Link 45",
+    "job_title": "Researcher",
+    "department": "Research",
+    "department_id": "dept-res",
+    "country": {
+      "name": "United Kingdom",
+      "alpha_2_code": "GB"
+    },
+    "type": "global_payroll_employee",
+    "status": "active",
+    "user_status": "active",
+    "employment_lifecycle_stage": "onboarded",
+    "manager": "Chain Parent",
+    "manager_employment_id": "emp-044",
+    "updated_at": "2026-08-01T09:00:00Z"
+  },
+  {
+    "company_id": "fixture-company",
+    "full_name": "Nameless One",
+    "status": "active",
+    "type": "employee"
+  },
+  {
+    "id": "",
+    "company_id": "fixture-company",
+    "full_name": "Empty Identifier",
+    "status": "active",
+    "type": "employee"
+  }
+]

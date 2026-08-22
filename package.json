@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run",
+    "test": "pnpm bake:fixture && vitest run",
+    "bake:fixture": "tsx scripts/bake-fixture.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "sync": "tsx --env-file-if-exists=.env.sync scripts/sync.ts"
