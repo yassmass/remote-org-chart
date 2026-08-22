@@ -408,10 +408,16 @@ export function ReviewBar({
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : selectedSource === 'fixture' ? (
             <p className="body-copy">
               No Remote API walk occurred. This snapshot was generated locally from the authored
               edge-case fixture.
+            </p>
+          ) : (
+            <p className="body-copy">
+              The committed sync-log excerpt is unavailable. Inspect{' '}
+              <span className="body-strong">data/sync.log</span> in the repository alongside the
+              snapshot content hash.
             </p>
           )}
         </section>

@@ -457,7 +457,7 @@ The document hierarchy at the head of this file is explicit: a decision recorded
 
 ---
 
-## Current Working Session — Session 8 · P4 Header, Toolbar, and Review Bar batch complete
+## Session 8 · P4 Header, Toolbar, and Review Bar batch complete
 
 **Module:** Bounded P4 UI batch — `Header`, `Toolbar`, and `ReviewBar` only
 **Task Ref:** `delivery.md` §2 Application · §4 P4a/P4b · `build.md` F5–F8 and §H.3 · `design.md` §9.1, §9.2, §9.5
@@ -497,10 +497,74 @@ Consequently, no browser or visual-acceptance claim is made in this session. `de
 
 ---
 
+## Current Working Session — Session 9 · P4a/P4b locked; P5 closed unused
+
+**Module:** Complete H4 application surface and acceptance gates
+**Task Ref:** `delivery.md` 1.13 §2 Application · §4 P4a/P4b/P5 · §7 checks 6–8 · `build.md` F3–F8 and §H.3 · `design.md` §§9–15
+**Status:** ✅ **P4a and P4b complete. P5 complete and unused.**
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.9 unchanged · `delivery.md` advanced from 1.12 to 1.13 to record the verified gates and phase closure
+
+### Production Files Completed Sequentially
+
+Every created or completed application file follows the locked domain, URL, accessibility, privacy, and visual contracts and carries comprehensive JSDoc for decision traceability.
+
+| File | Locked behavior completed |
+|---|---|
+| `src/components/Tree.tsx` | WAI-ARIA tree/treeitem/group semantics; one roving tab stop; Arrow Left/Right/Up/Down, Home, End, Enter, and Space behavior; depth-2 reset; expand/collapse controls; canonical order; 15-sibling cap; selected, match, context, duplicate-name, departed, synthetic, and null-field states; URL-backed person selection preserving the other five dimensions |
+| `src/components/PersonCard.tsx` | Preselected-node rendering only; person details with critical versus informational null treatment; root-to-person reporting line; manager and capped direct-report links; outside-filter notice and clear-filter link; deliberately reduced external-manager/unresolved-manager variants; mobile back action without inventing domain data |
+| `src/components/ReviewBar.tsx` | Complete source, reconciliation, provenance, issue-ledger, redacted-log, and no-token-verification evidence; exact `?review=open` and `?source=` synchronization; real-source empty-log state no longer claims that no Remote walk occurred |
+| `src/app/page.tsx` | Server-owned selection of committed snapshot or generated fixture; all six URL dimensions; forest assembly and filtering; principal-root default; preselected card lookup outside filtered results; locale-aware header; bounded hash-matched sync-log excerpt; desktop editorial composition; explicit-person mobile overlay; exact fixture metadata |
+| `next.config.ts` | Global `X-Robots-Tag: noindex` response header while retaining the locked compiler configuration |
+
+The prior Session 8 components — `Header.tsx`, `Toolbar.tsx`, and `ReviewBar.tsx` — are now composed on the production route. No new route, palette, card language, avatar system, API call, client-side snapshot fetch, or domain rule was added.
+
+### P4a Gate — Passed
+
+- The real committed snapshot renders **191 people**, **42 roots**, and **4 edges / 5 person levels** at the locked depth-2 expansion policy.
+- The tree exposes exactly one `tabindex="0"` treeitem. Keyboard traversal was exercised from **Kate Roy** at level 1 through **Jennifer A Miller**, **John A Smith**, and **Sarah L Brown** to the deepest real leaf, **Christopher H Lee** at level 5.
+- Desktop browser geometry matched the locked foundation: exact canvas color; 628px primary and detail columns with 101px gap; 421px white detail card; 249px selected maroon panel; prescribed radii, padding, dividers, and no shadows.
+- The page title resolves to **CatarinaFDE Demo2** for the real snapshot and the exact synthetic warning title for the fixture.
+- The production response returns `X-Robots-Tag: noindex`.
+- The requester confirmed the default Turbopack production build in their terminal. An independent `next build --webpack` also compiled, typechecked, generated pages, and collected traces successfully.
+- Per the requester's closure instruction, the phase is marked complete while they retain the final public Vercel refresh check; the CLI reported no active Vercel login in this session.
+
+### P4b Gate — Passed
+
+A production URL carrying all six §H.3 dimensions was opened in a fresh browser tab:
+
+`?person=0b091a51-5508-40cb-943a-9ddd36904e84&q=Aiden&dept=IT&departed=hide&source=snapshot&review=open`
+
+The original and fresh tab were identical: query **Aiden**, department **IT**, departed filter enabled, committed-snapshot source selected, review disclosure open, and **Abigail Baker** still selected with the explicit outside-current-filter notice. The copied query string was retained byte for byte.
+
+Additional browser acceptance passed:
+
+- `?source=fixture&review=open` shows the amber synthetic disclosure, **Edge Case Fixture**, `COUNT_MISMATCH`, unresolved records, and the exact synthetic page title.
+- `external:sofia reyes` renders the reduced **Outside Remote** card with attached reports and `MGR_EXTERNAL`, without person-only job-title or country fields.
+- At 360×800, an explicit person opens a 360px-wide fixed detail overlay with **Back to chart** visible.
+- Bossa and Inter both resolve from the local font setup; no external stylesheet is loaded.
+- The browser console reported zero warnings and zero errors.
+
+### Final Verification
+
+- `pnpm test`: fixture content hash unchanged; **196/196 tests passed across 13 files**.
+- `pnpm typecheck`: clean.
+- `pnpm lint`: clean.
+- `pnpm exec next build --webpack`: successful production build.
+- Default Turbopack build: confirmed successful by the requester in their terminal.
+- `delivery.md` 1.13: **P4a ✅ · P4b ✅ · P5 ✅ (unused)**.
+
+### Next Step
+
+**P6 remains the next delivery phase.** Complete the README and prove the clean-clone, no-`.env` run described by `delivery.md` §4 and §7. The requester owns the public Vercel refresh/revalidation and will report any discrepancy.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **P4a/P4b complete; P5 closed unused** (`delivery.md` 1.13 §4) | ✅ Tree, PersonCard, ReviewBar, page composition, source-aware metadata, and the global noindex header are production-complete with comprehensive JSDoc. Deepest-leaf keyboard traversal and all-six-parameter fresh-tab equivalence passed; fixture, reduced synthetic card, 360px overlay, typography, geometry, and console gates passed. Fixture bake unchanged; **196 tests**, typecheck, lint, requester-confirmed Turbopack build, and independent webpack build all pass. Public Vercel refresh check retained by requester after the CLI reported no active login. |
 | 2026-08-22 | **P4 bounded component batch — Header, Toolbar, Review Bar** | ✅ Exact requested three-file scope complete with comprehensive JSDoc. Fixture bake unchanged; **196 tests**, typecheck, lint, and production build all pass. P4a/P4b remain open because Tree, PersonCard, page composition, browser verification, and deployment were not part of this batch. Paused for user review. |
 | 2026-08-22 | **P3 re-locked after falsifiability audit** (`delivery.md` §4) | ✅ `fixtures/edge-cases.json` (49 elements), bake, generated snapshot, every domain suite, both P2a baked-fixture extensions, and all five `lib/` suites are present. `pnpm test` bakes first, reports the content hash unchanged, and passes **196 tests across 13 files**; `pnpm typecheck` and `pnpm lint` are clean. Raw reversal is byte-identical end to end; canonical object keys and included-data hash sensitivity are pinned; both pre-pass fields and all four open strings have independent cases; 201 is accepted by the production classifier; the baked forest shuffle compares every child list; and synthetic report ownership is exact. `build.md` 1.9 and `delivery.md` 1.12 supersede the initial 180-test lock. |
 | 2026-08-22 | **P2a complete — domain assembly half + test runner** (`delivery.md` §4) | ✅ `build-forest.ts`, `filter.ts`, `vitest.config.mts`, and both domain suites. **30 tests green**, `typecheck` and `lint` clean with the `domain/` boundary rule active. Definition of done asserted: 42 roots / 191 nodes / `maxDepth` 4 from the real snapshot, `principalRootId` naming a person root with 112 descendants. Vitest sealed with its tests rather than empty, satisfying Session 4's objection; `bake:fixture` correctly left to P3, its input being a P3 deliverable. Two specification defects found (G-12 unresolved-placeholder display name, G-13 the `?dept=` encoding), neither originated in code; three more were raised on review (G-14 department identity, G-15 the fold's three implementations, G-16 the unowned department menu). All three landed in `build.md` 1.6 / `delivery.md` 1.6 — **G-12 against my proposed resolution**, since one placeholder exists per distinct missing manager id and a constant label would make them indistinguishable. Code amended to match across both rounds; `domain/fold.ts` extracted as the fold's single owner and `departmentOptions()` added, unblocking P4a. Gate re-run after the manifest moved: 46 tests green. |
