@@ -55,16 +55,16 @@ const SOURCE_PATH = join(REPO_ROOT, 'fixtures', 'edge-cases.json');
 const OUTPUT_PATH = join(REPO_ROOT, 'fixtures', 'edge-cases.snapshot.json');
 
 /**
- * The company name the header renders when `?source=fixture` is selected.
+ * The fixture identity fixed by build.md §D.5.
  *
  * The real path reads this from `/v1/identity/current`; there is no identity
- * call here and no raw record carries a company name, so it is the one value in
- * this file that no document determines. It is deliberately unmistakable:
- * build.md §D.5 requires synthetic data never to be mistaken for the customer's
- * organization, and the amber demo band is reinforced rather than relied upon.
+ * call here and no raw record carries a company name, so `Edge Case Fixture` is
+ * fixed here exactly as the specification requires. It is deliberately
+ * unmistakable: the amber demo band is reinforced rather than relied upon.
  *
- * The company **id** is not a constant — it is read from the records, mirroring
- * §D.5's rule that identity comes from the data rather than from a literal.
+ * The same section fixes `company.id` as `fixture-company`. That value already
+ * exists on every authored record, so the bake reads it from the validated input
+ * below rather than maintaining a second literal that could drift from it.
  */
 const FIXTURE_COMPANY_NAME = 'Edge Case Fixture';
 

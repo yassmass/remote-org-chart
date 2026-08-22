@@ -10,7 +10,7 @@
  *
  * Parsing is deliberately two-stage (build.md §D.2). The pre-pass reads the two
  * fields whose absence would mean the response is not an employment list at all;
- * the projection then validates the sixteen fields the chart is built from. The
+ * the projection then validates the narrow fields the chart is built from. The
  * split is not defensive programming — it is what allows a record that fails
  * validation to still be *counted* and still be *classified*, without which the
  * count reconciliation in build.md §G.2 would render a green check while being
@@ -83,31 +83,21 @@ const CountryProjection = z
  * an employment list (build.md §D.2). A record failing this parse has no
  * readable identity: it is still counted in `recordCount` and still quarantined
  * as `RECORD_INVALID`, but with a null `employmentId` and a positional detail
- * such as `page 2, record 17`, so the conservation law stays total and the walk
+ * such as `record 117 of 191`, so the conservation law stays total and the walk
  * continues.
  *
- * ## Why `user_status` and `employment_lifecycle_stage` are here
+ * ## Why the pre-pass now contains exactly two fields
  *
- * They are **not** part of the failure criterion — both are nullable and absent
- * is fine. They are read because build.md §G.2 requires every term of the count
- * identity to come from the pre-pass rather than from the full projection, and
- * that identity is not yet settled: delivery.md's P1a gate requires the first
- * complete walk to measure four candidate counts — deleted, archived, offboarded
- * lifecycle stage, and inactive user status — and determine which identity holds
- * exactly against the control total.
- *
- * Deleted and archived are both `status` values, so those two were already
- * reachable. The other two are not, and a pre-pass that could not see them would
- * make the measurement impossible for a record that fails the projection —
- * exactly the case the pre-pass exists to cover.
- *
- * Once the identity is settled these may narrow to whichever fields it names.
- * They are read now because the measurement cannot be repeated without a token.
+ * P1a temporarily measured archived status, offboarded lifecycle stage, and
+ * inactive user status while the cross-endpoint identity was unsettled. The
+ * complete walk proved that only deleted status is excluded by the list endpoint,
+ * so `user_status` and `employment_lifecycle_stage` were removed from this pass.
+ * `id` identifies the record and `status` supplies `deletedCount`; no other field
+ * is needed before the full projection.
  *
  * @see planning/build.md §D.2 — "a quarantined record must still be counted and
  *   still be classifiable as deleted"
- * @see planning/build.md §G.2 check 2 — the identity, and why it is provisional
- * @see planning/delivery.md §4 P1a — the four-count gate that blocks P2a
+ * @see planning/build.md §G.2 check 2 — the settled count identity
  */
 export const PrePassSchema = z.object({
   id: z.string().min(1),
@@ -122,7 +112,7 @@ export type PrePassRecord = z.infer<typeof PrePassSchema>;
 // =============================================================================
 
 /**
- * The sixteen fields of build.md §D.2, and nothing else.
+ * The narrow projection of build.md §D.2, and nothing else.
  *
  * Everything else in Remote's Employment payload is discarded here, at the
  * boundary, before anything is written to disk. The payload carries roughly

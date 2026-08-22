@@ -11,12 +11,11 @@
  * object with four keys of which two are kept.
  *
  * `isDeparted` is the higher risk despite being nine lines. It combines three
- * independent signals with `or`, and **the real walk exercises only one of
- * them** — 25 records were archived by status, but a record departed by
- * lifecycle stage alone or by user status alone is a fixture-only case. An `and`
- * where an `or` belongs, or a dropped branch, would pass every test written
- * against real data and silently hide most departures. Each branch is therefore
- * asserted in isolation, with the other two signals held at their healthy values.
+ * independent signals with `or`. The real snapshot contains 20 lifecycle-only
+ * departures and 25 records where signals overlap, but no status-only or
+ * user-status-only departure. Overlap cannot prove `or` semantics, and two
+ * isolated branches still have no real-data instance, so each branch is asserted
+ * alone with the other two signals held at their healthy values.
  *
  * @see planning/build.md §D.2 — the staging projection
  * @see planning/build.md §D.4 — the Person shape
