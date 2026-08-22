@@ -1,0 +1,127 @@
+# Standard Next.js ignores, plus the entries this project's architecture needs.
+#
+# Two rules here are load-bearing rather than conventional, and are annotated
+# where they appear: the `.env*` negation, and the tracked data set at the foot
+# of this file.
+
+# ------------------------------------------------------------------------------
+# dependencies
+# ------------------------------------------------------------------------------
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Lockfiles from other package managers. `pnpm-lock.yaml` is the single source
+# of truth and is committed (build.md §H.1). A stray `npm install` regenerates
+# `package-lock.json`, and a host that finds two lockfiles may install with the
+# wrong one — a deployment failure that surfaces only at deploy time.
+package-lock.json
+yarn.lock
+bun.lockb
+
+# ------------------------------------------------------------------------------
+# next.js
+# ------------------------------------------------------------------------------
+/.next/
+/out/
+
+# ------------------------------------------------------------------------------
+# production build
+# ------------------------------------------------------------------------------
+/build
+
+# ------------------------------------------------------------------------------
+# testing — Vitest (build.md §I.1)
+# ------------------------------------------------------------------------------
+/coverage
+.vitest-cache/
+
+# ------------------------------------------------------------------------------
+# typescript
+# ------------------------------------------------------------------------------
+*.tsbuildinfo
+next-env.d.ts
+
+# ------------------------------------------------------------------------------
+# env files
+# ------------------------------------------------------------------------------
+# Every `.env*` variant is ignored, with the committed template negated back in.
+# Order matters: a negation only takes effect after the pattern it exempts.
+# `.env.sync` holds the sandbox token; `.env.sync.example` holds none.
+.env*
+!.env.sync.example
+
+# ------------------------------------------------------------------------------
+# hosting
+# ------------------------------------------------------------------------------
+.vercel
+
+# ------------------------------------------------------------------------------
+# logs and debug output
+# ------------------------------------------------------------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ------------------------------------------------------------------------------
+# certificates and keys
+# ------------------------------------------------------------------------------
+*.pem
+*.key
+*.p12
+
+# ------------------------------------------------------------------------------
+# editor and OS noise
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code writes machine-local tool permissions to this file; the rest of
+# `.claude/` is shared project configuration and stays tracked.
+.claude/settings.local.json
+
+
+# ==============================================================================
+# The tracked data set
+#
+# These paths carry stated guarantees, and the ignore rules above leave them
+# alone. Ignoring any one of them would leave the app with nothing to render, or
+# leave a guarantee in build.md §F with nothing to verify against.
+#
+#   data/snapshot.json      The chart itself — committed and shipped in the
+#                           bundle. The deployed app renders from it and makes
+#                           no API call.                     (build.md §D.5, F8)
+#
+#   data/sync.log           Redacted transcript of the walk, carrying that
+#                           snapshot's contentHash so the two are a matched pair
+#                           rather than two files that can drift.
+#                                                          (build.md §G.4.4, §I.1)
+#
+#   fixtures/edge-cases.json  The synthetic dataset behind every domain test and
+#                           the `?source=fixture` demonstration surface.
+#                                                             (build.md F8, §I.1)
+#
+#   fixtures/captured/      Real sandbox responses, redacted at capture per
+#                           build.md §I.1. Input to the contract tests, which is
+#                           what proves the Zod schemas match reality rather
+#                           than documentation.
+#
+#   pnpm-lock.yaml          Reproducible installs for anyone cloning the repo.
+#
+#   planning/               The specification and the delivery plan.
+#
+# The secret scan over that set (delivery.md §7 item 2) returns nothing when it
+# is clean, `fixtures/captured/` included:
+#
+#   grep -rEi 'ra_test|ra_live|[a-z0-9._%+-]+@[a-z0-9.-]+' data/ fixtures/
+# ==============================================================================
