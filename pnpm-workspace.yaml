@@ -1,2 +1,10 @@
+# pnpm 10 blocks dependency build scripts by default. Both entries below are
+# decisions rather than noise: `esbuild` needs its postinstall to fetch the
+# platform binary Vitest runs on, and declaring it here rather than approving it
+# interactively is what keeps delivery.md §7 checklist item 3 true — a fresh
+# clone runs `pnpm i` and the suite works, with no per-machine approval step.
+onlyBuiltDependencies:
+  - esbuild
+
 ignoredBuiltDependencies:
   - unrs-resolver

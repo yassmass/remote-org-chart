@@ -47,6 +47,7 @@
  * @see planning/build.md §F.1 — MGR_DANGLING, MGR_EXTERNAL, ROOT_NO_MANAGER
  * @see planning/build.md §G.3 — why the merge must be order-independent
  */
+import { foldKey } from './fold';
 import { issue } from './ledger';
 import type {
   DataIssue,
@@ -101,32 +102,6 @@ type ExternalManagerEntry = {
   /** The lowest employment id seen naming this manager. See `resolveEdges`. */
   claimantEmploymentId: string;
 };
-
-/**
- * Reduce a raw manager name to the slug that decides the merge.
- *
- * Trim, Unicode NFC, lowercase, collapse internal whitespace — build.md §D.6
- * rule 2's normalisation, in the order the rule states it.
- *
- * **This value never reaches the UI.** It is a merge key and nothing else. The
- * node's `displayName` is the raw string, for the reason §D.6 rule 2 records:
- * normalisation is what the slug is for, and applying it a second time on the
- * display path would discard the source's own casing and spacing — the only
- * signal a People Operator has that two spellings of one manager are in
- * circulation, and therefore that there is something to reconcile.
- *
- * `\s` under the `u` flag covers the whole Unicode space class — non-breaking,
- * en, em, and ideographic spaces included — which matters because a name pasted
- * out of a spreadsheet is exactly where those appear. A merge that treated a
- * name containing a non-breaking space as a different person from the same name
- * with an ordinary one would split a single manager into two nodes.
- *
- * @param raw the `manager` field exactly as Remote returned it
- * @returns the merge key, or the empty string if the name was blank
- */
-function managerSlug(raw: string): string {
-  return raw.trim().normalize('NFC').toLowerCase().replace(/\s+/gu, ' ');
-}
 
 /**
  * Whether an optional Remote string field carries a usable value.
@@ -263,7 +238,13 @@ export function resolveEdges(records: EmploymentRecord[]): ResolveEdgesResult {
       // their organization, not the Remote-managed subset of it, and dropping the
       // line to a manager paid through a different system would leak an
       // integration boundary into their view of their own company.
-      const slug = managerSlug(managerName);
+      // The merge key, and never the label. `displayName` below keeps the raw
+      // string, for the reason §D.6 rule 2 records: folding is what the key is
+      // for, and applying it on the display path too would discard the source's
+      // own casing and spacing — the only signal a People Operator has that two
+      // spellings of one manager are in circulation, and therefore that there is
+      // something to reconcile.
+      const slug = foldKey(managerName);
       const externalId = `${EXTERNAL_ID_PREFIX}${slug}`;
       const existing = externalBySlug.get(slug);
 

@@ -191,7 +191,7 @@ Open item 2 in `build.md` (the four illustrative count strings) closes in the sa
 
 ---
 
-## Current Working Session — Session 4 · P1a complete
+## Session 4 — P1a complete
 
 **Module:** P1a — sync path and the domain's resolution half
 **Task Ref:** `delivery.md` §4 P1a
@@ -254,10 +254,89 @@ Two obligations now inherited by later phases, both recorded so they are not red
 
 ---
 
+## Current Working Session — Session 5 · P2a complete
+
+**Module:** P2a — the domain's assembly half, plus the test runner
+**Task Ref:** `delivery.md` §4 P2a · §2 "Toolchain" · flag 1 from the pre-execution review
+**Status:** ✅ **Complete.** Three files written, 30 tests green, `pnpm typecheck` and `pnpm lint` clean
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.5 → **1.7** · `delivery.md` 1.5 → **1.7** — amendments landed on review across two rounds; G-12 against my proposed resolution, G-14 and G-15 raised on review rather than by me
+
+### What Was Done
+
+**Vitest sealed first, deliberately, and Session 4's objection to doing so was satisfied rather than overridden.** That objection was precise: installing the runner while every test file was a P3 deliverable "yields a `pnpm test` that is green because it is empty, which reads as a passing suite." It is answered by not leaving it empty — the two P2a modules ship with their tests in the same session. The reason it could not wait until after them is that **P2a's own definition of done is a test assertion**, and Sessions 3 and 4 discharged that class of assertion with throwaway probes three times, recording the verification gap each time. `build-forest.ts` carries §G.3 ordering and both `principalRootId` exclusions — the most order-sensitive code in the assembly half, and the one module `delivery.md` §2 demands a shuffle assertion on. Probing it and deleting the probe would have shipped P2a's central guarantee unverified in the repository.
+
+**`pnpm bake:fixture` was NOT sealed, and this is a hard block rather than a preference.** `scripts/bake-fixture.ts` reads `fixtures/edge-cases.json`, a P3 deliverable that does not exist; `delivery.md` §4 states why it cannot move — "the bake lives here rather than in P2a because its input is authored here". `delivery.md` §2 further runs `bake:fixture` *inside* `pnpm test`, so a bake with no input would break the test command on its first run.
+
+| File | Notes |
+|---|---|
+| `vitest.config.mts` | `environment: 'node'`, the `@/*` alias mirroring `tsconfig.json`, `src/**/__tests__/**/*.test.ts`. No DOM (§I.2 cuts component tests), no coverage threshold (a named cut in **Deliberately out of scope**), no globals. `.mts` rather than `.ts` because `tsconfig.json` already includes `**/*.mts` and Vite's native config loader warns on ESM-in-CJS otherwise |
+| `src/domain/build-forest.ts` | `buildForest(snapshot) → Forest`. One traversal for `depth`, `pathToRoot`, `directReports`, `totalDescendants`; §G.3 ordering; `principalRootId` with both exclusions |
+| `src/domain/filter.ts` | `filterForest(forest, { q, dept, hideDeparted }) → { forest, matchedIds }`. Exports `UNASSIGNED_DEPARTMENT` |
+
+**Toolchain, recorded because a fresh clone depends on it.** `vitest@4.1.11` added. pnpm 10 blocks dependency build scripts by default and Vitest needs esbuild's postinstall to fetch its platform binary; `onlyBuiltDependencies: [esbuild]` is declared in `pnpm-workspace.yaml` — the repository already had that file for `ignoredBuiltDependencies`, and pnpm reads the setting there rather than from `package.json` when a workspace file exists. Declaring it beats approving it interactively because `delivery.md` §7 item 3 requires a fresh clone to run `pnpm i` and work with no per-machine step.
+
+**P2a's definition of done, asserted rather than observed:** `buildForest` over the real `data/snapshot.json` returns 42 roots across 191 nodes at `maxDepth` 4, and `principalRootId` names a **person** root holding 21 direct reports and 112 total descendants. Root order reads 112, 15, 10, 9, 3 — §G.3's descending key, working on real data.
+
+### Two Numbers Worth Carrying Into H4
+
+- **`maxDepth` is 4 on the real walk**, which independently confirms the reading of §D.4 this module had to fix: roots sit at depth 0, so `maxDepth` is the greatest zero-indexed depth. `build.md` 1.5 rewrote §H.3's toolbar string against the measured walk as `191 people · 4 levels deep`, and that string is only correct under this reading. It is asserted in a test rather than left to a comment.
+- **The principal root is a *Digital Marketing Director*, not a CEO.** The rule elected it correctly — it is the person root with the greatest subtree — but this sandbox has no single clean head of company, and 37 of the 42 roots have no reports at all. The person card will open on that title, which is the honest answer for this data and should not be mistaken in H4 for a selection bug.
+
+### Specification Defects Found and Closed
+
+Continuing the G-n numbering from Session 4. G-12 and G-13 were found by writing the code the clause governs, and **neither was originated in code** — each was implemented against a string `build.md` already fixed and recorded for amendment. G-14 was raised on review of this session, not by me. All three are now landed; **G-12 landed against my proposed resolution.**
+
+| # | Defect | Resolution | Landed in |
+|---|---|---|---|
+| G-12 | `OrgNode.displayName` is a required `string`, but `UnresolvedManager` carries only `{ id, missingManagerId }` and **no name field**. §H.3 described the synthetic card as carrying "the display name, a kind label — *Outside Remote* or *Unresolved manager*", treating the two as distinct; for this kind they collapse into one string. `missingManagerId` additionally had zero readers across both documents | **Settled in `build.md` 1.6 §H.3 as `Unresolved manager · <missingManagerId>`, with the card omitting the kind label rather than printing it twice.** My proposed resolution — §F.1's literal quoted string, used verbatim — was **rejected on review and rightly so**: there is one placeholder per *distinct* missing manager id, so a constant label makes every placeholder identical on screen in a forest the real data shows is 42 roots wide, and `MGR_DANGLING`'s locked action (*re-select the manager in Remote*) is unactionable if the operator cannot tell which broken pointer they are looking at. `delivery.md` §5's second dangling record, added last round, would have made two placeholders read identically the moment it landed | ✅ Landed, `build.md` 1.6 §D.4 and §H.3. Gives `missingManagerId` its reader, so **no P4b dependency remains** |
+| G-13 | The `?dept=` encoding is undetermined. `Person.department` is `{ id, name }`, the id is `null` for exactly the people the Unassigned bucket selects, and no document fixes whether the parameter carries an id or a name | Matched on **name**, the only field that can express the null bucket, with the sentinel set to `'Unassigned'` — the literal menu label §H.3 already fixes, so no new string is coined. Exported as `UNASSIGNED_DEPARTMENT` so `page.tsx` owns the URL encoding, not the domain. **Approved as resolved** | ✅ Landed, `build.md` 1.6 §H.3, with the collision limitation now stated in the document rather than only in a comment |
+| G-14 | **Department *identity* was equally undetermined, and I did not flag it.** §H.3's menu lists "each department" — distinct by what comparison? With no rule, *Engineering* and *engineering* become two menu entries and two filters, each showing half the department | Raised on review, not by me. Settled by reusing §D.6 rule 2's normalisation — trim, NFC, lowercase, collapse internal whitespace — with the display form carried by the lowest employment ID. The fourth application of that discipline, which is why it is the right answer rather than a new one | ✅ Landed, `build.md` 1.6 §H.3 and `delivery.md` 1.6 §2 |
+| G-15 | **The §D.6 rule 2 fold had three implementations across two modules**, and I undercounted it as two. `resolve-edges.ts` and `filter.ts` each held the four-step rule; `filter.ts` additionally held a three-step search variant differing only by a `.replace(/\s+/gu, ' ')`. The hazard was never that they disagreed — they did not — but that nothing would have reported it if they had, and reaching for the wrong one returns a *plausible* string rather than failing | Raised on review. Single owner approved: `domain/fold.ts` exporting `foldKey()`, imported by both four-step sites. The search fold stays local, renamed `foldSearchText` so the wrong one reads wrong at the call site, and is recorded as a deliberately different three-step rule | ✅ Landed, `build.md` 1.7 §D.6 r2 and §H.2, `delivery.md` 1.7 §2 |
+| G-16 | **The department *menu* had no owner.** §H.3 grouped departments "for the menu and the filter alike", but `filter.ts` owned only the filter half and §H.2 forbids the derivation in `Toolbar.tsx`. Raised by me at the end of the previous round; it was blocking P4a | `filter.ts` owns both halves — `departmentOptions(people) → { key, label }[]` beside `filterForest`, so the grouping the menu offers cannot disagree with the grouping the filter applies. A separate module would have reproduced the drift one level up | ✅ Landed, `build.md` 1.7 §H.3, `delivery.md` 1.7 §2. **P4a unblocked** |
+
+**Collator locale.** `'en'` approved without amendment: `build.md` fixes *that* it is pinned and why, so the value is instantiation. Recorded in `delivery.md` §2.
+
+### Mid-Session Decisions
+
+- **The tests caught two places where I was originating rather than implementing, and both were in the test, not the module.** First: an assertion that an external root with more descendants would lead the root list — false, because §G.3's *first* key is kind rank, so a person root always precedes it for an unrelated reason. Rewritten to assert what is actually load-bearing, that the external node carries strictly more descendants and still loses the principal-root election. Second, and sharper: an assertion that a matching manager keeps their team visible. **F9 and §H.3 both scope retention to "matching nodes and their ancestors" and neither mentions descendants**, so a match keeps its ancestors and nothing below it. Reading a subtree into that rule would have been inventing it. The module was right both times.
+- **Facts do not narrow under a filter, and this is §H.3 twice over.** `depth`, `pathToRoot`, `directReports` and `totalDescendants` are carried through unchanged, as are `maxDepth` and `principalRootId` on the forest — only `roots`, `children` and `byId` change. §H.3 forbids a breadcrumb narrowed by a search box ("a different fact than the one F4 promises") and states that `maxDepth` and the conservation law are "properties of the sync and of the organization, not of a query". A manager with 40 reports must not read *1 direct report* because a search matched one of them. Asserted directly.
+- **`hideDeparted` had to run bottom-up, or §F.2's promise is only usually true.** Removing a departed leaf can leave its departed parent childless, so a top-down pass reading the original child count would keep a manager visible whose whole team had just gone. The pass resolves children first and decides removal against the *surviving* count, which never orphans anyone and cascades correctly. It has its own test, since it is the case a plausible implementation gets wrong.
+- **Assembly is defended against a cycle it should never see.** `breakCycles` guarantees acyclicity, so a loop reaching `buildForest` is a writer defect — but §G.1 promises the assembly half never throws, and unbounded recursion does not throw, it exhausts the stack and takes the process rather than the request. The traversal is an explicit stack with a visited set, and any node the root descent never reaches is promoted to a root, so the defect degrades into a placed node rather than a crash. Tested over a three-node loop.
+
+### Obligations Inherited by P3
+
+Recorded so they are not rediscovered:
+
+- **`pnpm test` is currently `vitest run` and must become `pnpm bake:fixture && vitest run`.** `delivery.md` §2 requires the bake inside `test` so a stale `fixtures/edge-cases.snapshot.json` fails CI rather than being noticed by eye. It cannot be written until `fixtures/edge-cases.json` exists.
+- **The two P2a suites are assembly-level and do not yet touch the authored fixture.** They run against the real snapshot plus hand-built `OrgSnapshot`s, because `filterForest` and `buildForest` consume the *baked* form. Once `pnpm bake:fixture` exists, the §I.1 shuffle and code assertions should run against `fixtures/edge-cases.snapshot.json` too — that is where `MGR_EXTERNAL`, `MGR_DANGLING` and `CYCLE_BROKEN` get their instances, since the real walk has none of them.
+- **The 15-child cap in §F.2 applies to the root list as well** (§H.3), and this dataset makes that live: 42 roots means the first paint shows 15 and a "show 27 more". No domain change — it is a `Tree.tsx` concern — but the number is real now.
+
+### P2a Gate — Re-run After the 1.7 Extraction
+
+`domain/fold.ts` and `departmentOptions()` moved the manifest after P2a first went green, so the gate was re-run rather than assumed to carry. **Identical result, plus one new property:** 42 roots, `maxDepth` 4, 191 nodes, `principalRootId` = Kate Roy (person, 112 descendants), `depth === pathToRoot.length` on every node, no empty `displayName`, and `departmentOptions` returns **16 rows covering 191 of 191 people** with Unassigned last — 15 real departments, matching H0's count on the sampled page. 46 tests across 3 files; `lint` and `typecheck` clean.
+
+A duplication audit is now part of the record: exactly two `normalize('NFC')` call sites remain in the repository, one being the documented three-step search fold. Before the extraction there were three.
+
+### P2a Gate — First Verification
+
+Re-run rather than taken on report: `pnpm lint` and `pnpm typecheck` clean, 42 roots, `maxDepth` 4, 191 people placed, `principalRootId` = **Kate Roy** (person, 112 descendants), §G.3 root and child ordering both confirmed, `depth === pathToRoot.length` on every node, no empty `displayName`. **P2a is done.**
+
+**The fact that explains why both gaps survived P1a and P2a undetected:** the real snapshot contains **zero synthetic nodes** — 0 external, 0 unresolved. The same fact makes five of six ledger codes fixture-only. The fixture is not a convenience here; it is the only thing that exercises the branch G-12 was about to get wrong.
+
+### Next Step
+
+**P2b** (`delivery.md` §4): the README's architecture, scope-decision and out-of-scope sections, written in H2 while the decisions are being made rather than in the final block. Then P3.
+
+**P3 now carries five fixture obligations, not two:** a `fold.test.ts` already exists pinning each of the four steps independently, which is the test that had nowhere to live while the rule was private to two modules. Plus: the second distinct dangling manager id and the second pre-pass failure added in Session 4, plus the two-placeholder case G-12 has just made load-bearing, and a department pair differing only by case or spacing to exercise G-14.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **P2a complete — domain assembly half + test runner** (`delivery.md` §4) | ✅ `build-forest.ts`, `filter.ts`, `vitest.config.mts`, and both domain suites. **30 tests green**, `typecheck` and `lint` clean with the `domain/` boundary rule active. Definition of done asserted: 42 roots / 191 nodes / `maxDepth` 4 from the real snapshot, `principalRootId` naming a person root with 112 descendants. Vitest sealed with its tests rather than empty, satisfying Session 4's objection; `bake:fixture` correctly left to P3, its input being a P3 deliverable. Two specification defects found (G-12 unresolved-placeholder display name, G-13 the `?dept=` encoding), neither originated in code; three more were raised on review (G-14 department identity, G-15 the fold's three implementations, G-16 the unowned department menu). All three landed in `build.md` 1.6 / `delivery.md` 1.6 — **G-12 against my proposed resolution**, since one placeholder exists per distinct missing manager id and a constant label would make them indistinguishable. Code amended to match across both rounds; `domain/fold.ts` extracted as the fold's single owner and `departmentOptions()` added, unblocking P4a. Gate re-run after the manifest moved: 46 tests green. |
 | 2026-08-22 | **P1a complete — sync path + domain resolution** (`delivery.md` §4) | ✅ All 11 files. `pnpm sync` writes 191 people / 191 edges / 42 issues at 4 API calls over 2 pages; `terminalCursorReached` and `countReconciled` both true; re-run is a no-op. **§G.2 identity settled exact** (191 = 191 − 0), closing `build.md` Open items 1–3 and P2a's gate. Eleven specification defects found and closed (G-1…G-11), `build.md` → 1.5, `delivery.md` → 1.5. Vitest deferred to P3 with the verification gap stated. |
 | 2026-08-22 | P1a part 1 — sync path + domain resolution (`delivery.md` §4) | 🟡 Superseded. 5 of 10 files written, typechecked and lint-clean: `schemas.ts`, `remote-client.ts`, `types.ts`, `ledger.ts`, `normalize.ts`. Schemas verified against all three captured fixtures — 100/100 records parse both stages, 15 projected keys, `country` reduced to two leaves, zero `/email/i` keys surviving. `zod@4.4.3` and `tsx@4.23.12` added. |
 | 2026-08-22 | Specification amended for the sync/render split | ✅ `build.md` → 1.3, `delivery.md` → 1.3. §G.1's Domain row placed graph resolution at render while §G.3 sorted `edges` and `issues` before writing — irreconcilable. Resolution moved to sync, because `countReconciled` and `contentHash` are fields of the snapshot and cannot be recorded by a check that ran after it existed. Consequences propagated: the system diagram gains a second domain box and corrects 3 requests to 4; §H.2's tree marks which half each module runs in; P1a absorbs five domain modules and P2a keeps two; four `delivery.md` signatures corrected against what `build.md` determines. New: the generated `fixtures/edge-cases.snapshot.json` with the raw fixture retained as the test input, `scripts/bake-fixture.ts`, and `pnpm bake:fixture` running under `test` so a stale bake fails CI. `contentHash` now excludes `capturedAt`, without which the no-`git diff` SLO was false. Third documentation defect fixed: `build.md` had promised a revision history since 1.1 and still had none, and the deferred Stage B strings were recorded in no document — both now under **Open against this document**. |
