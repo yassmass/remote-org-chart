@@ -332,7 +332,58 @@ Re-run rather than taken on report: `pnpm lint` and `pnpm typecheck` clean, 42 r
 
 ---
 
-## Current Working Session — Session 7 · P3 falsifiability repair and re-lock
+## Session 6 — P3 part 1 · paused
+
+> **Recovery note:** Restored from the committed Session 6 checkpoint in
+> `f53dda7`. Session 7 is the later falsifiability repair and re-lock; it does
+> not replace this earlier handoff.
+
+**Module:** P3 — the edge-case fixture, the bake, and the domain test layer
+**Task Ref:** `delivery.md` §4 P3 · §5 fixture manifest · §I.1
+**Status:** **Paused at handoff.** Fixture, bake, and all five missing domain suites were written; **146 tests across 8 files passed**, with clean `pnpm typecheck` and `pnpm lint`. The `lib/` suites and two P2a fixture extensions remained for Session 7.
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.8 · `delivery.md` 1.9 — G-17 through G-20 landed in `delivery.md` 1.8; 1.9 corrected the settled `ingest` count manifest
+
+### What Was Done
+
+**P2b was skipped by instruction**, not by oversight, so the README's architecture and out-of-scope sections remained outstanding.
+
+| File | Session 6 state |
+|---|---|
+| `fixtures/edge-cases.json` | 49 array elements: 47 employments plus two malformed elements |
+| `scripts/bake-fixture.ts` | Composed the same ingest and resolution pipeline as `scripts/sync.ts` and generated the served fixture snapshot |
+| `fixtures/edge-cases.snapshot.json` | Generated, committed, and never hand-edited |
+| `src/domain/__tests__/ledger.test.ts` | 14 tests over the six locked issue specifications |
+| `src/domain/__tests__/normalize.test.ts` | 19 projection and independently isolated departure-signal tests |
+| `src/domain/__tests__/resolve-edges.test.ts` | 26 tests over the four resolution rungs, exclusivity, and shuffled external-manager merging |
+| `src/domain/__tests__/break-cycles.test.ts` | 20 tests over one-, two-, and three-member cycles and deterministic shuffled cuts |
+| `src/domain/__tests__/reconcile.test.ts` | 21 tests over the three checks and conservation law |
+| `package.json` | `test` changed to `pnpm bake:fixture && vitest run`, making stale fixture output fail the suite |
+
+The generated fixture measured **49 walked · 46 placed · 3 quarantined · 13 findings**, exercised all six §F.1 codes, produced two external nodes and two unresolved placeholders, and reconciled to 8 roots at `maxDepth` 9 with `principalRootId = emp-001`. All five hashed collections held at least two elements.
+
+Checklist item 5a passed: a second fixture bake reported the content hash unchanged and produced no diff. Checklist item 2 also passed across `data/` and `fixtures/`, and the serialized fixture contained no key matching `/email/i`.
+
+### Specification Defects Closed
+
+- **G-17:** added `emp-047` so `externalManagers` contained two sortable elements after the Sofia Reyes merge.
+- **G-18:** corrected the direct-report cap case to 17 children and `show 2 more`.
+- **G-19:** fixed `emp-021` as the second Alan Turing required by duplicate-name handling.
+- **G-20:** assigned the `RECORD_INVALID` test obligation to `src/lib/__tests__/ingest.test.ts`.
+
+### Handoff to Session 7
+
+The remaining work was explicitly bounded to:
+
+1. Extend `build-forest.test.ts` and `filter.test.ts` over the generated fixture.
+2. Add the five `src/lib/__tests__/` suites.
+3. Run the full P3 gate and re-lock the tracker.
+
+Implementation paused at that boundary. Session 7 subsequently found the raw-order hash defect and six proof gaps, repaired them, and completed the 196-test P3 re-lock recorded below.
+
+---
+
+## Session 7 — P3 falsifiability repair and re-lock · complete
 
 **Module:** P3 — the edge-case fixture, the bake, and the domain test layer
 **Task Ref:** `delivery.md` §4 P3 · §5 fixture manifest · §I.1
@@ -406,10 +457,51 @@ The document hierarchy at the head of this file is explicit: a decision recorded
 
 ---
 
+## Current Working Session — Session 8 · P4 Header, Toolbar, and Review Bar batch complete
+
+**Module:** Bounded P4 UI batch — `Header`, `Toolbar`, and `ReviewBar` only
+**Task Ref:** `delivery.md` §2 Application · §4 P4a/P4b · `build.md` F5–F8 and §H.3 · `design.md` §9.1, §9.2, §9.5
+**Status:** ✅ **Requested three-file batch complete. P4a and P4b remain open.**
+**Date:** 2026-08-22
+**Documents:** `build.md` 1.9 · `delivery.md` 1.12 — neither required amendment; implementation followed their locked contracts
+
+### What Was Done
+
+The requested scope was implemented file by file and stopped after the third component. Each file carries comprehensive JSDoc covering its authority, inputs, decisions, URL-state responsibilities, accessibility behavior, privacy boundary, and explicit non-goals.
+
+| File | Locked behavior implemented |
+|---|---|
+| `src/components/Header.tsx` | Editorial product eyebrow and data-derived company name; viewer-locale absolute capture time plus relative age; exact persistent synthetic-fixture disclosure; invalid timestamp handled as named unavailable state; no refresh action, navigation, logo, diagnostics surface, network I/O, or snapshot selection |
+| `src/components/Toolbar.tsx` | URL-backed search, department selector, and departed toggle; preserves `person`, `source`, and `review`; renders the unfiltered people/depth/conservation summary, match count only for search/department filters, one-click walk/list/delete/place/quarantine arithmetic, and any sync-scoped finding; department options remain domain-supplied and are never re-derived in the component |
+| `src/components/ReviewBar.tsx` | `<details>` state mirrored by `?review=open`; source selector; complete semantic issue table grouped by scope then code; cursor, count, referential, and conservation evidence; full provenance counters and content hash; bounded redacted sync-log excerpt; zero-credential verification pointer; synthetic source explicitly reports that no Remote walk occurred |
+
+The three components use only the visual primitives and exact tokens already locked by `design.md` and `globals.css`: Remote's Bossa/Inter roles, recessed controls, white review surface, semantic review table, status pills, warning palette, thin chevrons, divider rules, and focus treatment. No new palette, card system, shadow, avatar, route, API call, or domain rule was introduced.
+
+### Verification
+
+- `pnpm test`: fixture content hash unchanged; **196 tests passed across 13 files**.
+- `pnpm typecheck`: clean.
+- `pnpm lint`: clean, including the three new component files under the repository's strict React and TypeScript rules.
+- `pnpm build`: successful Next.js 16.3.2 production build; `/` remains statically prerendered.
+- Each component also passed its own TypeScript and ESLint gate before the next file was started.
+
+### Scope Boundary and Remaining P4 Work
+
+**P4a and P4b are intentionally not marked complete.** This batch did not create or modify `Tree.tsx`, `PersonCard.tsx`, `page.tsx`, `layout.tsx`, `next.config.ts`, or any other application file. The current route is still the scaffold placeholder, so the new components are production-compiled but not yet composed into a rendered page.
+
+Consequently, no browser or visual-acceptance claim is made in this session. `design.md` §15 captures, URL round-trip verification, keyboard tree traversal, fixture title/disclosure verification, and deployed-page validation become meaningful only after the remaining P4 components and page composition exist.
+
+### Next Step
+
+**Pause for user review of the three requested component files.** Do not continue into `Tree`, `PersonCard`, page composition, layout/configuration, deployment, or tracker phase completion until the user explicitly resumes the work.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **P4 bounded component batch — Header, Toolbar, Review Bar** | ✅ Exact requested three-file scope complete with comprehensive JSDoc. Fixture bake unchanged; **196 tests**, typecheck, lint, and production build all pass. P4a/P4b remain open because Tree, PersonCard, page composition, browser verification, and deployment were not part of this batch. Paused for user review. |
 | 2026-08-22 | **P3 re-locked after falsifiability audit** (`delivery.md` §4) | ✅ `fixtures/edge-cases.json` (49 elements), bake, generated snapshot, every domain suite, both P2a baked-fixture extensions, and all five `lib/` suites are present. `pnpm test` bakes first, reports the content hash unchanged, and passes **196 tests across 13 files**; `pnpm typecheck` and `pnpm lint` are clean. Raw reversal is byte-identical end to end; canonical object keys and included-data hash sensitivity are pinned; both pre-pass fields and all four open strings have independent cases; 201 is accepted by the production classifier; the baked forest shuffle compares every child list; and synthetic report ownership is exact. `build.md` 1.9 and `delivery.md` 1.12 supersede the initial 180-test lock. |
 | 2026-08-22 | **P2a complete — domain assembly half + test runner** (`delivery.md` §4) | ✅ `build-forest.ts`, `filter.ts`, `vitest.config.mts`, and both domain suites. **30 tests green**, `typecheck` and `lint` clean with the `domain/` boundary rule active. Definition of done asserted: 42 roots / 191 nodes / `maxDepth` 4 from the real snapshot, `principalRootId` naming a person root with 112 descendants. Vitest sealed with its tests rather than empty, satisfying Session 4's objection; `bake:fixture` correctly left to P3, its input being a P3 deliverable. Two specification defects found (G-12 unresolved-placeholder display name, G-13 the `?dept=` encoding), neither originated in code; three more were raised on review (G-14 department identity, G-15 the fold's three implementations, G-16 the unowned department menu). All three landed in `build.md` 1.6 / `delivery.md` 1.6 — **G-12 against my proposed resolution**, since one placeholder exists per distinct missing manager id and a constant label would make them indistinguishable. Code amended to match across both rounds; `domain/fold.ts` extracted as the fold's single owner and `departmentOptions()` added, unblocking P4a. Gate re-run after the manifest moved: 46 tests green. |
 | 2026-08-22 | **P1a complete — sync path + domain resolution** (`delivery.md` §4) | ✅ All 11 files. `pnpm sync` writes 191 people / 191 edges / 42 issues at 4 API calls over 2 pages; `terminalCursorReached` and `countReconciled` both true; re-run is a no-op. **§G.2 identity settled exact** (191 = 191 − 0), closing `build.md` Open items 1–3 and P2a's gate. Eleven specification defects found and closed (G-1…G-11), `build.md` → 1.5, `delivery.md` → 1.5. Vitest deferred to P3 with the verification gap stated. |
