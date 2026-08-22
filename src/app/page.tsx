@@ -92,6 +92,37 @@ function optionalValue(value: string | null): string | null {
 }
 
 /**
+ * Identify one filtered tree view for its local interaction-state boundary.
+ *
+ * Expansion, sibling reveal, and roving focus are intentionally local to
+ * `Tree`, but their initial values are calculated from the roots supplied for
+ * the current view. A filter transition must therefore remount that boundary;
+ * otherwise clearing a narrow query can restore the full forest while keeping
+ * the narrow forest's stale expansion set. Snapshot identity and the three
+ * narrowing dimensions are sufficient. `person` and `review` are excluded so
+ * selection and evidence disclosure do not reset an otherwise unchanged tree.
+ *
+ * JSON serialization keeps empty, null, and delimiter-bearing user values
+ * unambiguous without originating a seventh URL dimension.
+ *
+ * @param source selected committed dataset
+ * @param contentHash immutable identity of that dataset's contents
+ * @param query normalized search query, or null when inactive
+ * @param department normalized department label, or null when inactive
+ * @param hideDeparted whether the qualified departure removal pass is active
+ * @returns stable React key for exactly one filtered tree view
+ */
+function treeViewKey(
+  source: SnapshotSelector,
+  contentHash: string,
+  query: string | null,
+  department: string | null,
+  hideDeparted: boolean,
+): string {
+  return JSON.stringify([source, contentHash, query, department, hideDeparted]);
+}
+
+/**
  * Preserve the complete incoming query while deleting the three narrowing keys.
  *
  * The returned link keeps `person`, `source`, and `review`, which is the
@@ -308,6 +339,20 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
 
   return (
     <main className="design-frame" aria-labelledby="org-chart-title">
+      <style>{`
+        @media (min-width: 1024px) {
+          .editorial-layout {
+            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) !important;
+            column-gap: var(--space-6) !important;
+          }
+
+          .detail-grid {
+            min-width: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+        }
+      `}</style>
       <Header
         capturedAt={snapshot.provenance.capturedAt}
         companyName={snapshot.company.name}
@@ -315,25 +360,33 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
         source={snapshot.provenance.source}
       />
 
-      <div className="editorial-layout mt-[var(--space-8)]">
-        <section className="primary-region flex flex-col gap-[var(--space-6)]">
-          <Toolbar
-            department={department}
-            departmentOptions={departmentOptions(snapshot.people)}
-            hideDeparted={hideDeparted}
-            matchedCount={filtered.matchedIds.size}
-            maxDepth={fullForest.maxDepth}
-            peopleCount={snapshot.people.length}
-            provenance={snapshot.provenance}
-            query={query}
-            syncIssues={syncIssues}
-          />
+      <div style={{ marginTop: 'var(--space-4)' }}>
+        <Toolbar
+          department={department}
+          departmentOptions={departmentOptions(snapshot.people)}
+          departureVisibility={filtered.departureVisibility}
+          hideDeparted={hideDeparted}
+          matchedCount={filtered.matchedIds.size}
+          peopleCount={snapshot.people.length}
+          provenance={snapshot.provenance}
+          query={query}
+          syncIssues={syncIssues}
+        />
+      </div>
 
+      <div className="editorial-layout" style={{ marginTop: 'var(--space-6)' }}>
+        <section className="primary-region">
           <Tree
             duplicateNameIds={duplicateNameIds(snapshot)}
             hasActiveViewFilter={hasActiveViewFilter}
             hasMatchFilter={hasMatchFilter}
-            key={`${source}:${snapshot.provenance.contentHash}`}
+            key={treeViewKey(
+              source,
+              snapshot.provenance.contentHash,
+              query,
+              department,
+              hideDeparted,
+            )}
             matchedIds={[...filtered.matchedIds]}
             roots={filtered.forest.roots}
             selectedId={selectedId}
@@ -343,6 +396,7 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
         <aside
           aria-label="Selected organization member"
           className={`detail-grid${explicitPersonId === null ? '' : ' max-md:fixed max-md:inset-0 max-md:z-50 max-md:m-0 max-md:max-w-none max-md:overflow-y-auto max-md:bg-[var(--canvas)] max-md:p-[var(--space-5)]'}`}
+          style={{ alignSelf: 'stretch', minWidth: 0 }}
         >
           <div className="detail-card-stack">
             <PersonCard
@@ -357,7 +411,7 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
         </aside>
       </div>
 
-      <section className="mt-[var(--space-8)]" aria-label="Data review">
+      <section style={{ marginTop: 'var(--space-6)' }} aria-label="Data review">
         <ReviewBar
           isOpen={reviewOpen}
           selectedSource={source}

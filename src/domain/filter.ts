@@ -78,7 +78,24 @@ export type FilterOptions = {
 };
 
 /**
- * A narrowed forest and the identity of what actually matched.
+ * Organization-level explanation of the qualified "Hide departed" behavior.
+ *
+ * These counts are measured against the unfiltered input forest. They are
+ * therefore invariant under `q`, `dept`, and the current toggle value, which
+ * lets the toolbar explain the operation without presenting a query-dependent
+ * subset as an organization fact.
+ */
+export type DepartureVisibility = Readonly<{
+  /** Every person for whom `isDeparted` is true; synthetic nodes never count. */
+  total: number;
+  /** Departed people the bottom-up never-orphan pass removes when enabled. */
+  hiddenWhenEnabled: number;
+  /** Departed people retained because at least one report survives that pass. */
+  retainedWithReports: number;
+}>;
+
+/**
+ * A narrowed forest, the identity of what matched, and departure explanation.
  *
  * No `matchCount`: it is `matchedIds.size`, and a second field holding the same
  * number is a field that can disagree with the first.
@@ -91,6 +108,8 @@ export type FilterResult = {
    * removes rather than matches. Empty whenever neither criterion is active.
    */
   matchedIds: Set<string>;
+  /** Domain-owned counts used to explain why some departed managers remain. */
+  departureVisibility: DepartureVisibility;
 };
 
 /**
@@ -288,6 +307,83 @@ function isRemovableDeparted(node: OrgNode): boolean {
 }
 
 /**
+ * Internal result for one departure-only subtree analysis.
+ *
+ * `survives` is intentionally not exposed: it is traversal state needed to
+ * decide whether the parent still has a report after departed leaves have been
+ * removed. The public result contains counts only.
+ */
+type DepartureSubtree = DepartureVisibility & {
+  survives: boolean;
+};
+
+/**
+ * Measure one subtree under the exact bottom-up never-orphan rule.
+ *
+ * This is a measurement pass, not a second filtering implementation: it makes
+ * the same single removal decision as `narrow` — a departed person is removed
+ * only when no child survives — but allocates no nodes and applies no query or
+ * department criterion. Keeping those transient criteria out is what makes the
+ * resulting disclosure an organization fact.
+ *
+ * @param node one node in the original assembled forest
+ * @returns subtree counts plus whether this node survives departed-only hiding
+ */
+function measureDepartureSubtree(node: OrgNode): DepartureSubtree {
+  let total = 0;
+  let hiddenWhenEnabled = 0;
+  let retainedWithReports = 0;
+  let survivingChildren = 0;
+
+  for (const child of node.children) {
+    const measured = measureDepartureSubtree(child);
+    total += measured.total;
+    hiddenWhenEnabled += measured.hiddenWhenEnabled;
+    retainedWithReports += measured.retainedWithReports;
+    if (measured.survives) survivingChildren += 1;
+  }
+
+  if (!isRemovableDeparted(node)) {
+    return { total, hiddenWhenEnabled, retainedWithReports, survives: true };
+  }
+
+  total += 1;
+  if (survivingChildren === 0) {
+    hiddenWhenEnabled += 1;
+    return { total, hiddenWhenEnabled, retainedWithReports, survives: false };
+  }
+
+  retainedWithReports += 1;
+  return { total, hiddenWhenEnabled, retainedWithReports, survives: true };
+}
+
+/**
+ * Measure the whole organization under departed-only hiding.
+ *
+ * Roots are the authoritative traversal surface: `buildForest` guarantees every
+ * node is placed exactly once, so walking `byId` as well would double count.
+ * The returned arithmetic is exhaustive by construction:
+ * `hiddenWhenEnabled + retainedWithReports === total`.
+ *
+ * @param forest the original unfiltered forest
+ * @returns stable counts for the toolbar's zero, shown, and hidden states
+ */
+function measureDepartureVisibility(forest: Forest): DepartureVisibility {
+  let total = 0;
+  let hiddenWhenEnabled = 0;
+  let retainedWithReports = 0;
+
+  for (const root of forest.roots) {
+    const measured = measureDepartureSubtree(root);
+    total += measured.total;
+    hiddenWhenEnabled += measured.hiddenWhenEnabled;
+    retainedWithReports += measured.retainedWithReports;
+  }
+
+  return { total, hiddenWhenEnabled, retainedWithReports };
+}
+
+/**
  * Narrow one node and everything beneath it, or drop it.
  *
  * ## Why this runs bottom-up
@@ -370,7 +466,7 @@ function narrow(
  *
  * @param forest the unfiltered forest from `buildForest`, never mutated
  * @param options the three controls, each independently inactive-able
- * @returns the narrowed forest and the ids that genuinely matched
+ * @returns the narrowed forest, genuine match ids, and stable departure counts
  */
 export function filterForest(forest: Forest, options: FilterOptions): FilterResult {
   const foldedQuery = options.q === null ? null : foldSearchText(options.q);
@@ -378,6 +474,7 @@ export function filterForest(forest: Forest, options: FilterOptions): FilterResu
   const dept = options.dept === null || options.dept === '' ? null : options.dept;
 
   const matchedIds = new Set<string>();
+  const departureVisibility = measureDepartureVisibility(forest);
   const byId = new Map<string, OrgNode>();
   const roots: OrgNode[] = [];
 
@@ -398,5 +495,6 @@ export function filterForest(forest: Forest, options: FilterOptions): FilterResu
       principalRootId: forest.principalRootId,
     },
     matchedIds,
+    departureVisibility,
   };
 }

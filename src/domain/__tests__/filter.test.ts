@@ -9,12 +9,18 @@
  * `buildForest` would ever produce, while resolving the raw fixture here would
  * cross back into the sync-time half of the domain.
  *
+ * Departure visibility is asserted as organization-level arithmetic rather
+ * than component copy. The zero, leaf, retained-manager, cascading-removal,
+ * filter-invariance, and committed-snapshot cases together prove that the UI
+ * can explain the qualified toggle without reimplementing its semantics.
+ *
  * @see planning/build.md F9 — name, job title, department; ancestors as context
  * @see planning/build.md §F.2 — the toggle never orphans a team
  * @see planning/build.md §H.3 — composition, and what stays whole under a filter
  */
 import { describe, expect, it } from 'vitest';
 
+import realSnapshotJson from '../../../data/snapshot.json';
 import fixtureSnapshotJson from '../../../fixtures/edge-cases.snapshot.json';
 import { buildForest } from '../build-forest';
 import { departmentOptions, filterForest, UNASSIGNED_DEPARTMENT } from '../filter';
@@ -117,6 +123,9 @@ const NO_FILTER = { q: null, dept: null, hideDeparted: false } as const;
  * the assembly half.
  */
 const fixtureSnapshot = fixtureSnapshotJson as unknown as OrgSnapshot;
+
+/** The committed real snapshot, used only for the exact 45/41/4 acceptance fact. */
+const realSnapshot = realSnapshotJson as unknown as OrgSnapshot;
 
 describe('filterForest · the generated edge-case snapshot', () => {
   const forest = buildForest(fixtureSnapshot);
@@ -363,6 +372,11 @@ describe('filterForest · the departed toggle (§F.2)', () => {
   it('shows departed staff when the toggle is off', () => {
     const result = filterForest(departedForest(), NO_FILTER);
     expect(idsInTree(result.forest.roots)).toEqual(['p1', 'p2', 'p3', 'p4']);
+    expect(result.departureVisibility).toEqual({
+      total: 2,
+      hiddenWhenEnabled: 1,
+      retainedWithReports: 1,
+    });
   });
 
   it('removes a departed leaf but never a departed person with a team', () => {
@@ -371,6 +385,11 @@ describe('filterForest · the departed toggle (§F.2)', () => {
     // Katherine is departed with no reports — removed. Grace is departed with a
     // report — retained, because removing her would orphan Alan.
     expect(idsInTree(result.forest.roots)).toEqual(['p1', 'p2', 'p3']);
+    expect(result.departureVisibility).toEqual({
+      total: 2,
+      hiddenWhenEnabled: 1,
+      retainedWithReports: 1,
+    });
   });
 
   it('removes a departed parent once its whole departed team has gone', () => {
@@ -389,11 +408,55 @@ describe('filterForest · the departed toggle (§F.2)', () => {
 
     const result = filterForest(forest, { ...NO_FILTER, hideDeparted: true });
     expect(idsInTree(result.forest.roots)).toEqual(['p1']);
+    expect(result.departureVisibility).toEqual({
+      total: 2,
+      hiddenWhenEnabled: 2,
+      retainedWithReports: 0,
+    });
   });
 
   it('removes rather than matches, contributing nothing to matchedIds', () => {
     const result = filterForest(departedForest(), { ...NO_FILTER, hideDeparted: true });
     expect(result.matchedIds.size).toBe(0);
+  });
+
+  it('reports zeroes for an organization with no departed people', () => {
+    const result = filterForest(chainForest(), NO_FILTER);
+
+    expect(result.departureVisibility).toEqual({
+      total: 0,
+      hiddenWhenEnabled: 0,
+      retainedWithReports: 0,
+    });
+  });
+
+  it('keeps departure visibility invariant under query, department, and toggle state', () => {
+    const forest = departedForest();
+    const expected = {
+      total: 2,
+      hiddenWhenEnabled: 1,
+      retainedWithReports: 1,
+    };
+
+    expect(filterForest(forest, NO_FILTER).departureVisibility).toEqual(expected);
+    expect(filterForest(forest, { ...NO_FILTER, q: 'Alan' }).departureVisibility).toEqual(expected);
+    expect(
+      filterForest(forest, { ...NO_FILTER, dept: 'Engineering' }).departureVisibility,
+    ).toEqual(expected);
+    expect(
+      filterForest(forest, { ...NO_FILTER, q: 'Alan', dept: 'Engineering', hideDeparted: true })
+        .departureVisibility,
+    ).toEqual(expected);
+  });
+
+  it('pins the committed snapshot departure visibility to 45 total, 41 hidden, 4 retained', () => {
+    const result = filterForest(buildForest(realSnapshot), NO_FILTER);
+
+    expect(result.departureVisibility).toEqual({
+      total: 45,
+      hiddenWhenEnabled: 41,
+      retainedWithReports: 4,
+    });
   });
 });
 

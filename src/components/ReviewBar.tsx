@@ -58,6 +58,12 @@ export type ReviewBarProps = {
 /** Scope order: operator-owned record findings before integration-owned sync findings. */
 const SCOPE_ORDER: readonly DataIssue['scope'][] = ['record', 'sync'];
 
+/** PersonCard-compatible divider rhythm between review subsections. */
+const DIVIDED_REVIEW_SECTION_STYLE = {
+  paddingTop: 'var(--space-4)',
+  borderTop: 'var(--rule) solid var(--divider)',
+} as const;
+
 /**
  * A render-only grouping of issues that share one scope and code.
  *
@@ -258,8 +264,18 @@ export function ReviewBar({
   }
 
   return (
-    <details className="group w-full" onToggle={toggleReview} open={isOpen}>
-      <summary className="flex min-h-[var(--row-height)] cursor-pointer list-none items-center justify-between gap-[var(--space-3)] border-b-[var(--rule)] border-[var(--divider)] px-[var(--space-5)] [&::-webkit-details-marker]:hidden">
+    <details
+      className="group w-full"
+      onToggle={toggleReview}
+      open={isOpen}
+      style={{
+        position: 'relative',
+        width: '100%',
+        border: 'var(--rule) solid var(--divider)',
+        borderRadius: 'var(--radius-panel)',
+      }}
+    >
+      <summary className="flex min-h-[var(--row-height)] cursor-pointer list-none items-center justify-between gap-[var(--space-3)] px-[var(--space-5)] [&::-webkit-details-marker]:hidden">
         <span className="flex min-w-0 flex-wrap items-center gap-[var(--space-2)]">
           <span className="section-title">Data integrity</span>
           <span className="micro-copy text-[var(--ink-secondary)]">
@@ -269,18 +285,43 @@ export function ReviewBar({
         <DisclosureChevron />
       </summary>
 
-      <div className="surface-card mx-auto mt-[var(--space-4)] flex flex-col gap-[var(--space-5)]">
+      <div
+        className="flex flex-col gap-[var(--space-5)]"
+        style={{
+          position: 'absolute',
+          right: 0,
+          bottom: 'calc(100% + var(--space-2))',
+          left: 0,
+          zIndex: 30,
+          width: '100%',
+          maxWidth: 'none',
+          maxHeight: '40vh',
+          overflowY: 'auto',
+          padding: 'var(--space-5)',
+          border: 'var(--rule) solid var(--divider)',
+          borderRadius: 'var(--radius-panel)',
+          background: 'var(--surface)',
+          color: 'var(--ink)',
+          boxShadow: 'none',
+        }}
+      >
         <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="review-source-title">
           <h2 id="review-source-title" className="section-title">
             Source
           </h2>
           <label className="flex flex-col gap-[var(--space-1)]">
-            <span className="field-label">Dataset</span>
+            <span
+              className="field-label"
+              style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+            >
+              Dataset
+            </span>
             <select
               className="field-control w-full"
               onChange={(event) => {
                 replaceReviewParameter('source', event.currentTarget.value);
               }}
+              style={{ height: 'var(--compact-row-height)' }}
               value={selectedSource}
             >
               <option value="snapshot">Committed snapshot</option>
@@ -289,7 +330,11 @@ export function ReviewBar({
           </label>
         </section>
 
-        <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="reconciliation-title">
+        <section
+          className="flex flex-col gap-[var(--space-3)]"
+          aria-labelledby="reconciliation-title"
+          style={DIVIDED_REVIEW_SECTION_STYLE}
+        >
           <h2 id="reconciliation-title" className="section-title">
             Reconciliation
           </h2>
@@ -333,50 +378,97 @@ export function ReviewBar({
           </div>
         </section>
 
-        <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="provenance-title">
+        <section
+          className="flex flex-col gap-[var(--space-3)]"
+          aria-labelledby="provenance-title"
+          style={DIVIDED_REVIEW_SECTION_STYLE}
+        >
           <h2 id="provenance-title" className="section-title">
             Data source details
           </h2>
           <dl className="grid grid-cols-1 gap-[var(--space-2)] sm:grid-cols-2">
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">Source</dt>
-              <dd className="micro-copy">{provenance.source}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Source
+              </dt>
+              <dd className="body-copy">{provenance.source}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">Environment</dt>
-              <dd className="micro-copy">{provenance.environment}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Environment
+              </dt>
+              <dd className="body-copy">{provenance.environment}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">Captured at</dt>
-              <dd className="micro-copy">{provenance.capturedAt}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Captured at
+              </dt>
+              <dd className="body-copy">{provenance.capturedAt}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">Company ID</dt>
-              <dd className="micro-copy break-all">{provenance.companyId}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Company ID
+              </dt>
+              <dd className="body-copy break-all">{provenance.companyId}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">API calls</dt>
-              <dd className="micro-copy">{provenance.apiCallCount}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                API calls
+              </dt>
+              <dd className="body-copy">{provenance.apiCallCount}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)]">
-              <dt className="field-label">Bulk pages</dt>
-              <dd className="micro-copy">{provenance.pageCount}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Bulk pages
+              </dt>
+              <dd className="body-copy">{provenance.pageCount}</dd>
             </div>
-            <div className="recessed-row flex-col items-start py-[var(--space-2)] sm:col-span-2">
-              <dt className="field-label">Content hash</dt>
-              <dd className="micro-copy break-all">{provenance.contentHash}</dd>
+            <div className="flex min-w-0 flex-col gap-[var(--space-1)] sm:col-span-2">
+              <dt
+                className="field-label"
+                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              >
+                Content hash
+              </dt>
+              <dd className="body-copy break-all">{provenance.contentHash}</dd>
             </div>
           </dl>
         </section>
 
-        <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="ledger-title">
+        <section
+          className="flex flex-col gap-[var(--space-3)]"
+          aria-labelledby="ledger-title"
+          style={DIVIDED_REVIEW_SECTION_STYLE}
+        >
           <h2 id="ledger-title" className="section-title">
             Integrity ledger
           </h2>
           <IssueLedger issues={snapshot.issues} />
         </section>
 
-        <section className="flex flex-col gap-[var(--space-3)]" aria-labelledby="sync-log-title">
+        <section
+          className="flex flex-col gap-[var(--space-3)]"
+          aria-labelledby="sync-log-title"
+          style={DIVIDED_REVIEW_SECTION_STYLE}
+        >
           <h2 id="sync-log-title" className="section-title">
             Sync log excerpt
           </h2>
@@ -422,7 +514,11 @@ export function ReviewBar({
           )}
         </section>
 
-        <section className="flex flex-col gap-[var(--space-2)]" aria-labelledby="verification-title">
+        <section
+          className="flex flex-col gap-[var(--space-2)]"
+          aria-labelledby="verification-title"
+          style={DIVIDED_REVIEW_SECTION_STYLE}
+        >
           <h2 id="verification-title" className="section-title">
             Verify without a token
           </h2>

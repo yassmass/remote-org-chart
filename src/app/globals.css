@@ -158,6 +158,7 @@
   --action: #e03d5c;
   --selected-ink: #ffffff;
   --selected-ink-secondary: #f6f7f8;
+  --selected-ink-muted: rgb(255 255 255 / 72%);
   --surface: #ffffff;
   --surface-recessed: #f6f7f8;
   --surface-hover: #fef7f9;
@@ -201,8 +202,9 @@
   --space-14: 160px;
   --row-height: 81px;
   --compact-row-height: 40px;
-  --action-height: 40px;
-  --icon-action-size: 40px;
+  --action-height: 24px;
+  --icon-action-size: 24px;
+  --company-mark-size: 40px;
   --status-pill-height: 24px;
   --radius-xs: 2px;
   --radius-control: 4px;
@@ -218,9 +220,6 @@
   --primary-width: 628px;
   --editorial-gap: 101px;
   --detail-grid-size: 628px;
-  --detail-grid-cell: calc(var(--detail-grid-size) * 70 / 820);
-  --detail-grid-inset: calc(var(--detail-grid-size) * 65.5 / 820);
-  --detail-grid-visual-size: calc(var(--detail-grid-size) * 689 / 820);
   --detail-card-width: calc(var(--detail-grid-size) * 550 / 820);
 }
 
@@ -360,35 +359,88 @@
 
   .detail-grid {
     position: relative;
+    display: flex;
     width: 100%;
     max-width: var(--detail-grid-size);
-    min-height: var(--detail-grid-size);
+    min-height: 0;
+    flex-direction: column;
     margin-block-start: var(--space-6);
     background-color: var(--canvas);
-  }
-
-  .detail-grid::before {
-    position: absolute;
-    inset-block-start: var(--detail-grid-inset);
-    inset-inline-start: var(--detail-grid-inset);
-    width: var(--detail-grid-visual-size);
-    height: var(--detail-grid-visual-size);
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: var(--detail-grid-cell) var(--detail-grid-cell);
-    content: "";
-    pointer-events: none;
   }
 
   .detail-card-stack {
     position: relative;
     z-index: 1;
-    display: grid;
-    width: var(--detail-card-width);
+    display: flex;
+    width: 100%;
     max-width: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
     margin-inline: auto;
     gap: var(--space-4);
+  }
+
+  .detail-card-stack .surface-card {
+    max-width: none;
+    flex: 1 0 auto;
+  }
+
+  /*
+   * Header surface: the same maroon, radius, padding, and shadow contract as
+   * the tree's selected box, without inheriting its tree-only minimum height.
+   */
+  .brand-header {
+    display: grid;
+    grid-template-areas:
+      "identity"
+      "disclosure"
+      "capture";
+    gap: var(--space-3);
+    padding: var(--space-5);
+    border: 0;
+    border-radius: var(--radius-panel);
+    background: var(--selected);
+    color: var(--selected-ink);
+    box-shadow: none;
+  }
+
+  .brand-header__identity {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    grid-area: identity;
+    gap: var(--space-3);
+  }
+
+  .brand-header__company {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .company-mark {
+    width: var(--company-mark-size);
+    height: var(--company-mark-size);
+    flex: 0 0 var(--company-mark-size);
+  }
+
+  .brand-header__capture {
+    grid-area: capture;
+    color: var(--selected-ink-muted);
+    text-align: right;
+  }
+
+  .brand-header__disclosure {
+    grid-area: disclosure;
+  }
+
+  .brand-header .display-heading {
+    color: var(--selected-ink);
+  }
+
+  .brand-header .eyebrow {
+    color: var(--selected-ink-muted);
   }
 
   /* Typography primitives: one role per element, per design.md section 9.7. */
@@ -474,7 +526,7 @@
   }
 
   .selected-panel {
-    min-height: 249px;
+    min-height: 0;
     padding: var(--space-5);
     border: 0;
     border-radius: var(--radius-panel);
@@ -511,6 +563,7 @@
   }
 
   .field-control {
+    height: var(--compact-row-height);
     min-height: var(--compact-row-height);
     padding-inline: var(--space-3);
     border: 0;
@@ -564,14 +617,15 @@
     background: transparent;
     color: var(--accent);
     font-family: var(--font-inter);
-    font-size: 16px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.5;
     box-shadow: none;
   }
 
   .outline-action {
-    padding-inline: var(--space-5);
+    height: var(--action-height);
+    padding-inline: var(--space-3);
     border-radius: var(--radius-pill);
   }
 
@@ -650,6 +704,19 @@
   .design-frame {
     width: calc(100% - 96px);
   }
+
+  .brand-header {
+    grid-template-areas:
+      "identity capture"
+      "disclosure disclosure";
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-7);
+  }
+
+  .brand-header__capture {
+    max-width: 260px;
+    align-self: end;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -660,8 +727,8 @@
 
   .editorial-layout {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 75px;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    column-gap: var(--space-6);
     align-items: start;
   }
 
@@ -682,8 +749,8 @@
   }
 
   .editorial-layout {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--editorial-gap);
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    column-gap: var(--space-6);
   }
 
   .display-heading {
@@ -728,10 +795,6 @@
     background-image: none;
   }
 
-  .detail-grid::before {
-    content: none;
-  }
-
   .detail-card-stack {
     width: 100%;
   }
@@ -748,7 +811,7 @@
   }
 
   .editorial-layout {
-    column-gap: 131px;
+    column-gap: var(--space-6);
   }
 
   .display-heading {

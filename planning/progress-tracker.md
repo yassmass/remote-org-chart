@@ -497,13 +497,15 @@ Consequently, no browser or visual-acceptance claim is made in this session. `de
 
 ---
 
-## Current Working Session — Session 9 · P4a/P4b locked; P5 closed unused
+## Session 9 · Original P4a/P4b closure; P5 closed unused
 
 **Module:** Complete H4 application surface and acceptance gates
 **Task Ref:** `delivery.md` 1.13 §2 Application · §4 P4a/P4b/P5 · §7 checks 6–8 · `build.md` F3–F8 and §H.3 · `design.md` §§9–15
 **Status:** ✅ **P4a and P4b complete. P5 complete and unused.**
 **Date:** 2026-08-22
 **Documents:** `build.md` 1.9 unchanged · `delivery.md` advanced from 1.12 to 1.13 to record the verified gates and phase closure
+
+**Historical status notice:** Session 10 reopens P4a after direct interaction testing found that Session 9's six-parameter paste test proved restoration but did not exercise the toolbar controls. P4b remains complete. The evidence below is retained as the exact record of what Session 9 did verify; it is not the current P4a status.
 
 ### Production Files Completed Sequentially
 
@@ -554,9 +556,80 @@ Additional browser acceptance passed:
 - Default Turbopack build: confirmed successful by the requester in their terminal.
 - `delivery.md` 1.13: **P4a ✅ · P4b ✅ · P5 ✅ (unused)**.
 
-### Next Step
+### Next Step — Superseded
 
-**P6 remains the next delivery phase.** Complete the README and prove the clean-clone, no-`.env` run described by `delivery.md` §4 and §7. The requester owns the public Vercel refresh/revalidation and will report any discrepancy.
+This handoff was superseded on 2026-08-22 by Session 10, which re-closed P4 after the toolbar correction.
+
+---
+
+## Current Working Session — Session 10 · P4 toolbar correction complete
+
+**Module:** P4a toolbar interaction repair and departure-visibility disclosure
+**Task Ref:** `build.md` 1.12 §H.3 · `delivery.md` 1.16 §2 Application · §4 P4a · §7 checks 6a–6b
+**Status:** ✅ **P4 complete. P4a and P4b are closed. Paused for requester review.**
+**Date:** 2026-08-22
+**Documents:** `build.md` advanced 1.9 → 1.12 · `delivery.md` advanced 1.13 → 1.16
+
+### Why the prior gate was insufficient
+
+Session 9 opened a URL already containing all six §H.3 parameters and proved that the view restored byte-for-byte. That is valid evidence for linkability, selected-person persistence, source selection, and review disclosure state. It is not evidence that typing, native clear, department changes, or the departed checkbox mutate the URL and rendered tree correctly. P4a was therefore over-closed and is reopened; P4b's PersonCard/ReviewBar evidence is unaffected.
+
+### Implemented repair
+
+`src/components/Toolbar.tsx` previously submitted search only through the form. Typing changed the browser field but did not change `q` or the tree, and the browser-native clear control had no application-state path. The repair now:
+
+- listens to the search input event so each typed value replaces `q` without Enter;
+- deletes `q` for an empty value, which is the event path used by clearing the field;
+- keeps the visible search value in controlled client state while older App Router responses are in flight;
+- accepts a server/history value only when it matches the complete pending URL, or when no local mutation is pending;
+- advances a mutable latest-intended query-string snapshot before `router.replace`, so a rapid department/departed action composes with an in-flight search rather than overwriting it from stale `useSearchParams()` state;
+- preserves the existing CSS, full-width compact layout, and domain ownership of filtering.
+
+`src/domain/filter.ts` now returns `departureVisibility: { total, hiddenWhenEnabled, retainedWithReports }` from a separate bottom-up departed-only measurement over the unfiltered forest. It applies the same never-orphan decision as the removal pass, never counts synthetic roots, and remains invariant under query, department, and toggle state. `src/domain/__tests__/filter.test.ts` pins zero departures, a removable leaf, a retained departed manager, a cascading departed chain, filter invariance, and the committed real result `{ total: 45, hiddenWhenEnabled: 41, retainedWithReports: 4 }`.
+
+`src/app/page.tsx` passes those values directly to Toolbar and keys Tree local state by snapshot identity plus `q`, `dept`, and `departed`. This closes a browser-found reset defect: the full forest could return after clearing a narrow query while retaining the narrow tree's expansion set. The filtered-view key now restores the locked depth-two state; `person` and `review` changes do not reset it.
+
+`src/components/Toolbar.tsx` renders conservation arithmetic, the exact departure state, and conditional `N matching` on one responsive line, with ` · ` between every meaning. The zero-data branch remains exactly `0 departed`; no domain arithmetic changed.
+
+Focused browser evidence against the running real snapshot:
+
+| Scenario | Observed result |
+|---|---|
+| Rapidly type `Lau Wai Keung` without Enter | Controlled value and URL both settled to `Lau Wai Keung` / `?q=Lau+Wai+Keung`; three treeitems rendered (match plus two ancestors); `1 matching` and `45 departed shown` rendered |
+| Type `Aiden`, then immediately enable Hide departed | URL retained both mutations as `?q=Aiden&departed=hide`; `1 matching` and `41 departed hidden · 4 retained with reports` rendered |
+| Add department `IT` to that active query/toggle | URL composed as `?q=Aiden&departed=hide&dept=IT`; `1 matching` remained and departure visibility stayed exactly 41/4 |
+| Clear query through an explicit user input-clear sequence while departed remains enabled | URL became `?departed=hide`; input became empty; `N matching` disappeared; 94 depth-two treeitems rendered |
+| Disable Hide departed after clear | URL returned to `/`; `45 departed shown` rendered; the default depth-two tree restored all 101 currently visible treeitems |
+| Native search clear path | The controlled `type="search"` input handles the native empty `input` event by deleting only `q`; the explicit user-input clear sequence proved URL preservation and complete depth-two restoration |
+
+### Departed-data finding and newly locked disclosure
+
+The toggle was not operating over an empty category. The committed 191-person snapshot contains **45 departed people** under `isDeparted`: archived employment status, offboarded lifecycle stage, or inactive user status overlap into one union. Under §F.2's existing bottom-up never-orphan rule:
+
+- **41** are removed when the toggle is enabled;
+- **4** remain because each has surviving reports: Miguel Sanchez Ruiz (1), John A Smith (2), Pablo Navarro Jimenez (3), and Clara Robert (7).
+
+The control worked according to the domain rule but previously did not explain why four departed badges remained. `build.md` 1.12 requires and the implementation supplies a domain-owned `departureVisibility` result with `{ total, hiddenWhenEnabled, retainedWithReports }`, independent of `q` and `dept`. Exact toolbar states are:
+
+- `0 departed` when the source has none;
+- `N departed shown` when the toggle is off;
+- `N departed hidden · M retained with reports` when it is on;
+- real snapshot: `45 departed shown` / `41 departed hidden · 4 retained with reports`.
+
+The unfiltered conservation arithmetic begins the same responsive line: `191 walked · 0 deleted · 191 listed ✓ · 191 placed · 0 quarantined · 45 departed shown`, with ` · N matching` appended only for an active query or department. The separator unifies presentation without merging the meanings or their data ownership.
+
+### Verification state
+
+- `pnpm typecheck`: passed after the final controlled-input and tree-state corrections.
+- `pnpm lint`: passed after the final controlled-input and tree-state corrections.
+- `pnpm test`: fixture bake unchanged; **199/199 tests passed across 13 files**.
+- Focused browser acceptance: passed for live typing, rapid cross-control composition, toggle effect, invariant 45/41/4 disclosure, clear-state URL preservation, and full depth-two restoration.
+- Production build: **not run and not claimed**, per the requester's explicit instruction. The requester's existing development server was used; no second server was started.
+- No CSS was reverted or edited by this correction.
+
+### Review handoff
+
+P4 is complete. No additional implementation, documentation, build, deployment, or component scope is authorized before requester review.
 
 ---
 
@@ -564,6 +637,8 @@ Additional browser acceptance passed:
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **P4 complete after toolbar interaction correction** (`build.md` 1.12 · `delivery.md` 1.16) | ✅ P4a and P4b closed. `filterForest.departureVisibility`, the zero/leaf/manager/chain/real assertions, race-safe controlled live search, latest-intended URL composition, filtered-tree reset, and one responsive ` · `-separated conservation/departure/match line are implemented with comprehensive JSDoc. Browser interaction checks pass; fixture bake unchanged; **199 tests**, typecheck, and lint pass. No CSS was reverted and no production build was run. Paused for requester review. |
+| 2026-08-22 | **P4a reopened after toolbar interaction audit; contract re-locked** (`build.md` 1.10 · `delivery.md` 1.14) | ↻ Live search, empty-input URL reset, and latest-intended URL composition were implemented in `Toolbar.tsx`; focused browser checks passed, as did lint, typecheck, and **196 tests**. The former paste-only URL gate was recorded as insufficient for control behavior. Real data has 45 departed people: 41 hideable and 4 retained managers. This reopening was superseded by the completed P4 row above. |
 | 2026-08-22 | **P4a/P4b complete; P5 closed unused** (`delivery.md` 1.13 §4) | ✅ Tree, PersonCard, ReviewBar, page composition, source-aware metadata, and the global noindex header are production-complete with comprehensive JSDoc. Deepest-leaf keyboard traversal and all-six-parameter fresh-tab equivalence passed; fixture, reduced synthetic card, 360px overlay, typography, geometry, and console gates passed. Fixture bake unchanged; **196 tests**, typecheck, lint, requester-confirmed Turbopack build, and independent webpack build all pass. Public Vercel refresh check retained by requester after the CLI reported no active login. |
 | 2026-08-22 | **P4 bounded component batch — Header, Toolbar, Review Bar** | ✅ Exact requested three-file scope complete with comprehensive JSDoc. Fixture bake unchanged; **196 tests**, typecheck, lint, and production build all pass. P4a/P4b remain open because Tree, PersonCard, page composition, browser verification, and deployment were not part of this batch. Paused for user review. |
 | 2026-08-22 | **P3 re-locked after falsifiability audit** (`delivery.md` §4) | ✅ `fixtures/edge-cases.json` (49 elements), bake, generated snapshot, every domain suite, both P2a baked-fixture extensions, and all five `lib/` suites are present. `pnpm test` bakes first, reports the content hash unchanged, and passes **196 tests across 13 files**; `pnpm typecheck` and `pnpm lint` are clean. Raw reversal is byte-identical end to end; canonical object keys and included-data hash sensitivity are pinned; both pre-pass fields and all four open strings have independent cases; 201 is accepted by the production classifier; the baked forest shuffle compares every child list; and synthetic report ownership is exact. `build.md` 1.9 and `delivery.md` 1.12 supersede the initial 180-test lock. |
