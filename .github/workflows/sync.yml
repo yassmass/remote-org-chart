@@ -1,0 +1,110 @@
+# @fileoverview Daily build-time refresh of the committed Remote org snapshot.
+#
+# This workflow preserves three ordered safety boundaries:
+#
+# 1. Lint, typecheck, and the offline suite prove the checked-out code against
+#    the last-known-good committed artifacts before any credential is read or
+#    network request is made.
+# 2. The fixture-drift gate proves `pnpm test` did not repair a stale generated
+#    fixture silently. `pnpm sync` then decides whether the Remote walk itself is
+#    fit to write through its pagination, uniqueness, reconciliation, and schema-
+#    drift refusals.
+# 3. The offline suite runs again against a changed snapshot before publication.
+#    Its real-snapshot assertions are invariant-based, so legitimate organization
+#    changes pass while an assembly regression leaves the previous commit live.
+#
+# Only `data/snapshot.json` and its matched `data/sync.log` are committed, and
+# only when the content hash changes. The API token exists solely in this job's
+# sync step; it never reaches application code or the deployed environment.
+#
+# @see planning/build.md §G.1, §G.3, §H.1
+# @see planning/delivery.md §2, §7 item 10a
+name: sync-org-data
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: sync-org-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint checked-out code
+        run: pnpm lint
+
+      - name: Typecheck checked-out code
+        run: pnpm typecheck
+
+      - name: Test against the last-known-good snapshot
+        run: pnpm test
+
+      # `pnpm test` bakes the generated fixture before Vitest. The bake is
+      # intentionally idempotent, but it does not fail merely because it had to
+      # repair a stale sibling. This explicit diff turns that repair into a red
+      # workflow before the API token is exposed or Remote is called.
+      - name: Verify generated fixture is current
+        run: git diff --exit-code -- fixtures/edge-cases.snapshot.json
+
+      - name: Synchronize Remote org data
+        run: pnpm sync
+        env:
+          REMOTE_API_TOKEN: ${{ secrets.REMOTE_API_TOKEN }}
+
+      # Real-snapshot assertions derive their expectations from the artifact
+      # under test. Running them here validates the new topology without turning
+      # yesterday's population, principal root, or departure counts into schema.
+      - name: Test the synchronized snapshot
+        run: pnpm test
+
+      # Nothing to commit when the content hash is unchanged: `pnpm sync` leaves
+      # both files untouched in that case (build.md §G.3), so this is the same
+      # no-op a re-run by hand produces.
+      #
+      # The push uses GITHUB_TOKEN, which by design does not retrigger Actions.
+      # It does reach Vercel's GitHub App, which is what deploys the new
+      # snapshot — replacing this token with a PAT is not needed and would only
+      # widen the credential.
+      - name: Commit snapshot if changed
+        run: |
+          snapshot_changed=0
+          sync_log_changed=0
+          git diff --quiet -- data/snapshot.json || snapshot_changed=1
+          git diff --quiet -- data/sync.log || sync_log_changed=1
+
+          if [ "$snapshot_changed" -ne "$sync_log_changed" ]; then
+            echo "snapshot and sync log must change as one matched pair"
+            exit 1
+          fi
+
+          if [ "$snapshot_changed" -eq 0 ]; then
+            echo "content hash unchanged — nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/snapshot.json data/sync.log
+          git commit -m "chore: scheduled org data sync ($(node -p "require('./data/snapshot.json').provenance.contentHash.slice(0,12)"))"
+          git push

@@ -246,6 +246,26 @@ function linkChildren(byId: Map<string, OrgNode>, edges: ReportingEdge[]): strin
  * descended twice, so a residual loop terminates instead of spinning, and the
  * caller can still see which nodes were never reached at all.
  *
+ * ## Why the second link is removed rather than skipped
+ *
+ * Terminating the descent is not enough, and this is the part that was wrong
+ * until it was measured. Skipping an already-visited child leaves that child in
+ * its parent's `children` array, so the *returned* forest still contains the
+ * loop — `descend` finishes, and every consumer that walks `children` afterwards
+ * inherits the cycle instead of the guarantee. `filterForest` exhausted the
+ * stack on exactly this input while this function returned normally.
+ *
+ * Dropping the link is what makes the property hold in the artifact rather than
+ * only in this traversal, so it is established once, here, and every consumer
+ * gets it for free — the render-side tree walk included. The node is not lost:
+ * it keeps the depth and path it was first given, and it is still reachable by
+ * its first parent. What it loses is a second parent, which build.md §D.1 says
+ * cannot exist — an employment has at most one manager.
+ *
+ * The same removal covers the two-parent case, which is a distinct writer defect
+ * with the same shape: without it a node would render under both parents while
+ * carrying one depth, so the tree would show one person twice.
+ *
  * ## Why two phases over one stack
  *
  * `totalDescendants` is a post-order quantity — a parent's count is only known
@@ -293,12 +313,16 @@ function descend(root: OrgNode, visited: Set<string>): number {
     // Queue the exit before the children, so it is popped after all of them.
     stack.push({ node, entering: false });
 
+    const kept: OrgNode[] = [];
+    let severed = false;
+
     for (const child of node.children) {
       if (visited.has(child.id)) {
         // Already claimed by another parent — only reachable if the edge set is
         // cyclic or a node has two parents, neither of which the resolution half
-        // can produce. Skipping keeps the descent finite; the node keeps the
-        // depth and path it was first given.
+        // can produce. The link is severed rather than skipped, so the forest
+        // this function returns is acyclic for every later reader (see above).
+        severed = true;
         continue;
       }
       visited.add(child.id);
@@ -307,8 +331,15 @@ function descend(root: OrgNode, visited: Set<string>): number {
       // path rather than by walking upward at read time, which is what makes the
       // breadcrumb in F4 a field lookup rather than a traversal.
       child.pathToRoot = [node.id, ...node.pathToRoot];
+      kept.push(child);
       stack.push({ node: child, entering: true });
     }
+
+    // Rebuilt only when something was actually removed, so the path every real
+    // snapshot takes allocates nothing and mutates nothing. `directReports` and
+    // `totalDescendants` are folded on the way back up, after this, so both
+    // counts describe the links that survived.
+    if (severed) node.children = kept;
   }
 
   return deepest;

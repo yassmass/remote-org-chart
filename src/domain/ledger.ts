@@ -1,12 +1,11 @@
 /**
  * @fileoverview The only file permitted to author a ledger finding.
  *
- * Five of the seven fields on a `DataIssue` are fixed per code and never decided
- * per instance: the code itself, its `scope`, its `severity`, its
- * `suggestedOwner`, and its `suggestedAction`. Centralising them is not
- * tidiness. The integrity panel is a work queue for a People Operator, and a
- * queue whose severities are chosen at each call site is a queue whose reader
- * learns to ignore severity — which is the same failure build.md §E.4 refuses to
+ * Five of a `DataIssue`'s eight fields are fixed per code and never decided per
+ * instance: the code itself, its `scope`, its `severity`, its `suggestedOwner`,
+ * and its `suggestedAction`. Centralising them is not tidiness. The integrity
+ * panel is a work queue for a People Operator, and a queue whose severities are
+ * chosen at each call site is a queue whose reader learns to ignore severity — which is the same failure build.md §E.4 refuses to
  * accept when it declines to validate Remote's status enum strictly.
  *
  * Only three fields vary per instance, and they are exactly the three a finding
@@ -14,13 +13,17 @@
  * called, and the privacy-safe detail that tells the operator which record to
  * open.
  *
- * ## Why the actions are constants rather than templates
+ * ## Why the actions are composed from constants rather than from input
  *
  * delivery.md §3 constrains every string twice: none may name a field the
  * operator cannot see or edit, and none may contain an email, an identifier, or
- * a raw payload. Both hold structurally here, because a string that interpolates
- * nothing can leak nothing. Identifiers live in `safeDetail`, which is authored
- * by the caller and reviewed as data rather than as copy.
+ * a raw payload. Both hold structurally here — not because the action is a
+ * literal, which it no longer is, but because of *what* it interpolates.
+ * `suggestedAction` is `diagnosis + " " + nextStep`, and both halves are locked
+ * constants in the table below. **Nothing from `IssueContext` reaches it**, so
+ * there is no path by which caller data could enter a string this file authors.
+ * Identifiers live in `safeDetail`, which the caller writes and a reviewer reads
+ * as data rather than as copy.
  *
  * @see planning/build.md §F.1 — the closed set of six codes and their triggers
  * @see planning/build.md §D.4 — the DataIssue shape
@@ -191,10 +194,13 @@ export function issuePresentation(code: IssueCode): IssuePresentation {
  * what it says. Callers are `resolve-edges.ts` (the three `MGR_*` outcomes and
  * `ROOT_NO_MANAGER`), `break-cycles.ts` (`CYCLE_BROKEN`), `lib/ingest.ts` (`RECORD_INVALID`), and `reconcile.ts` (`COUNT_MISMATCH`).
  *
- * Not sorted here. Canonical ordering by `(code, employmentId)` happens once,
- * in `snapshot-writer.ts`, immediately before hashing — because ordering is a
- * property of the serialized artifact rather than of the moment a finding was
- * raised (build.md §G.3).
+ * Not sorted here. Canonical ordering by `(code, employmentId, safeDetail)`
+ * happens once, in `snapshot-writer.ts`, immediately before hashing — because
+ * ordering is a property of the serialized artifact rather than of the moment a
+ * finding was raised (build.md §G.3). The third term is not decoration: two
+ * records failing the §D.2 pre-pass both produce `RECORD_INVALID` with a null
+ * `employmentId`, so the first two terms alone are not unique and a stable sort
+ * would pass arrival order into the hash.
  */
 export function issue(code: IssueCode, ctx: IssueContext): DataIssue {
   const spec = ISSUE_SPECS[code];

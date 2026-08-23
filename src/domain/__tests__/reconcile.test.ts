@@ -190,10 +190,30 @@ describe('reconcile · check 1, cursor reconciliation', () => {
     ).toThrow(/terminal cursor/iu);
   });
 
-  it('raises no ledger code for it — a pipeline defect has no People Ops owner', () => {
-    expect(() =>
-      reconcile(provenance({ terminalCursorReached: false }), THREE_PEOPLE, THREE_EDGES, 0),
-    ).toThrow();
+  // The property this file's header claims for all three pipeline checks, stated
+  // as something a run can falsify. Asserting the throw again would only repeat
+  // the test above; what makes this one distinct is the **absence of a return
+  // value**, which is what "raises no ledger code" means at runtime — a check
+  // that threw cannot have appended to `issues`, because there is no result to
+  // hold them.
+  it('throws rather than returning, so no ledger row can carry the defect', () => {
+    let returned: ReturnType<typeof reconcile> | undefined;
+
+    expect(() => {
+      returned = reconcile(
+        provenance({ terminalCursorReached: false }),
+        THREE_PEOPLE,
+        THREE_EDGES,
+        0,
+      );
+    }).toThrow(/terminal cursor/iu);
+
+    expect(returned).toBeUndefined();
+
+    // And nothing is raised on the healthy path either, in either direction:
+    // check 1 has no ledger code at all, which is what leaves `COUNT_MISMATCH`
+    // the only §F.1 code this module can author.
+    expect(reconcile(provenance(), THREE_PEOPLE, THREE_EDGES, 0).issues).toEqual([]);
   });
 });
 

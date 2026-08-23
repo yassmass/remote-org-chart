@@ -106,15 +106,14 @@ type ExternalManagerEntry = {
 /**
  * Whether an optional Remote string field carries a usable value.
  *
- * build.md §D.6 phrases the ladder's tests as *present* and *names someone*.
- * Neither is satisfied by an empty or whitespace-only string, and both fields
- * this guards — `manager` and `manager_employment_id` — parse as a plain
- * nullable string with no minimum length, so the empty case genuinely reaches
- * this code rather than being excluded upstream.
- *
- * Treating blank as absent is what keeps the rungs honest at both ends: a blank
- * id must not raise `MGR_DANGLING` against an id nobody can look up, and a blank
- * name must not manufacture an external manager called nothing.
+ * build.md §D.6 states the rule this implements: a field that is present but
+ * blank is absent, because neither *present* nor *names someone* is satisfied by
+ * an empty or whitespace-only string. Both fields this guards — `manager` and
+ * `manager_employment_id` — parse as a plain nullable string with no minimum
+ * length, so the blank case reaches the ladder rather than being excluded at the
+ * schema, and the consequences of not testing for it are named there: a blank id
+ * raising `MGR_DANGLING` against an id nobody can look up, and a blank name
+ * manufacturing an external manager whose slug is the empty string.
  */
 function isPresent(value: string | null): value is string {
   return value !== null && value.trim() !== '';

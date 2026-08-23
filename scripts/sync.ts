@@ -176,7 +176,23 @@ async function main(): Promise<number> {
   // Everything below is pure. It runs once, here, and its results are written
   // into the artifact — which is why countReconciled and contentHash can be
   // fields of the snapshot at all (§G.1).
-  const { records, issues: ingestIssues, counts } = ingest(rawRecords);
+  const { records, issues: ingestIssues, counts, duplicateEmploymentIds } = ingest(rawRecords);
+
+  // §G.1's Pagination row, checked here because this is the first place an id is
+  // legible: the walk returns `unknown[]` by construction. A repeated employment
+  // means the read cannot be shown to be complete, and §G.3's sort keys stop
+  // being unique the moment it happens — `people` sorts on `id`, so equal keys
+  // would pass cursor order straight into `contentHash`. Nothing is written.
+  if (duplicateEmploymentIds.length > 0) {
+    console.error(
+      `Refusing to write: the bulk walk returned ${String(duplicateEmploymentIds.length)} employment ` +
+        `${duplicateEmploymentIds.length === 1 ? 'id' : 'ids'} more than once.`,
+    );
+    console.error('Re-run the sync; a walk that repeats a record is not a walk that can be reconciled.');
+    console.error(`  ${duplicateEmploymentIds.join(', ')}`);
+    console.error('data/snapshot.json is untouched.');
+    return EXIT.refused;
+  }
 
   const people = normalize(records);
   const resolved = resolveEdges(records);

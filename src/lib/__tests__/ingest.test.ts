@@ -240,3 +240,81 @@ describe('ingest · stage ordering and degradation', () => {
     expect(detail).not.toContain('42');
   });
 });
+
+/**
+ * build.md F1 and §G.2 check 1 both assert that no employment id arrives twice,
+ * and until this suite existed nothing in the system checked it. The guarantee
+ * is not decorative: `people` sorts on `id` and `edges` on `reportEmploymentId`,
+ * and §G.3 requires each sort key to be unique *within* its collection precisely
+ * because a stable sort passes equal keys through in arrival order — so a repeat
+ * puts cursor order back into `contentHash` while every other check stays green.
+ * The conservation law does not catch it either: two records really did arrive,
+ * so both are placed and the arithmetic balances.
+ */
+describe('ingest · duplicate employment ids', () => {
+  it('reports an employment id the walk returned twice', () => {
+    const result = ingest([
+      validRawRecord({ id: 'emp-001' }),
+      validRawRecord({ id: 'emp-002' }),
+      validRawRecord({ id: 'emp-001' }),
+    ]);
+
+    expect(result.duplicateEmploymentIds).toEqual(['emp-001']);
+    // Reported, never repaired: both copies are still counted and still placed,
+    // because deciding which one to drop is not a decision this layer can make.
+    expect(result.records).toHaveLength(3);
+    expect(result.counts.recordCount).toBe(3);
+    expect(result.counts.quarantinedCount).toBe(0);
+  });
+
+  // The repeat is counted at stage one, so it survives a later projection
+  // failure on one of the copies — which is the case a check placed after
+  // validation would miss entirely.
+  it('reports a duplicate when only one copy survives the projection', () => {
+    const result = ingest([
+      validRawRecord({ id: 'emp-001' }),
+      validRawRecord({ id: 'emp-001', full_name: null }),
+    ]);
+
+    expect(result.duplicateEmploymentIds).toEqual(['emp-001']);
+    expect(result.records).toHaveLength(1);
+    expect(result.counts.quarantinedCount).toBe(1);
+  });
+
+  // Two records that both fail the pre-pass have no id to collide on. They are
+  // already quarantined, and their findings are made unique by the canonical
+  // position rather than by an employment id (§D.2).
+  it('does not treat two unidentifiable records as a duplicate', () => {
+    const result = ingest([{ status: 'active' }, { status: 'active' }]);
+
+    expect(result.duplicateEmploymentIds).toEqual([]);
+    expect(result.counts.unclassifiableCount).toBe(2);
+  });
+
+  // The refusal message must read the same on every walk that returned the same
+  // repetition, whatever order the pages arrived in.
+  it('reports duplicates in a canonical order independent of arrival order', () => {
+    const forward = ingest([
+      validRawRecord({ id: 'emp-b' }),
+      validRawRecord({ id: 'emp-a' }),
+      validRawRecord({ id: 'emp-b' }),
+      validRawRecord({ id: 'emp-a' }),
+    ]);
+    const reversed = ingest([
+      validRawRecord({ id: 'emp-a' }),
+      validRawRecord({ id: 'emp-b' }),
+      validRawRecord({ id: 'emp-a' }),
+      validRawRecord({ id: 'emp-b' }),
+    ]);
+
+    expect(forward.duplicateEmploymentIds).toEqual(['emp-a', 'emp-b']);
+    expect(reversed.duplicateEmploymentIds).toEqual(forward.duplicateEmploymentIds);
+  });
+
+  // The committed artifacts are the reason this matters at all: both writers
+  // refuse on a non-empty report, so a regression here would stop the build
+  // rather than ship an arrival-dependent hash.
+  it('finds no duplicate in the authored edge-case fixture', () => {
+    expect(ingest(rawFixtureJson).duplicateEmploymentIds).toEqual([]);
+  });
+});

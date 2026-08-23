@@ -9,10 +9,13 @@
  *
  * ## Two layers, held apart
  *
- * `EmploymentRecord` in `lib/schemas.ts` is what Remote returns, narrowed to the
- * §D.2 projection. Everything below is what this system derives. No component
- * ever touches a raw Remote shape, and the translation happens exactly once, in
- * `normalize.ts`.
+ * `EmploymentRecord` — declared below, and the one type here that speaks
+ * Remote's vocabulary rather than this system's — is what Remote returns,
+ * narrowed to the §D.2 projection. It is declared in this file rather than
+ * beside the Zod schema that parses it because dependencies point inward; the
+ * reasoning is on the type itself. Everything after it is what this system
+ * derives. No component ever touches a raw Remote shape, and the translation
+ * happens exactly once, in `normalize.ts`.
  *
  * ## Where these values are produced
  *
@@ -351,7 +354,27 @@ export type Forest = {
   /** Ordered by the rule in §G.3, never by arrival order. */
   roots: OrgNode[];
   byId: Map<string, OrgNode>;
-  /** Consumed by the toolbar summary; a derived field with no reader should not exist. */
+  /**
+   * The greatest zero-indexed node depth in the forest — roots sit at 0.
+   *
+   * It was introduced for the toolbar's *N levels deep* string, which no longer
+   * exists: the toolbar line was reduced to accounting, departure state, and the
+   * conditional match count, so **no product surface reads this today**. That is
+   * recorded rather than glossed, because the field originally justified itself
+   * by having a reader.
+   *
+   * It is kept on three grounds that do not depend on one. It is free: the
+   * descent already establishes every node's depth, so this is the maximum of
+   * numbers that had to be computed anyway. It is the assembly-side statement of
+   * §D.4's depth semantics — roots at 0 — and is asserted as such rather than
+   * left to a comment. And it is a fact about the organization, so `filterForest`
+   * carries it through unchanged: a query narrows the view, never the shape of
+   * the company.
+   *
+   * Delete it if the §F.2 depth cap moves into the domain and finds a different
+   * home for the same measurement, or if a reader has still not appeared when
+   * this model is next revised.
+   */
   maxDepth: number;
   /**
    * The head of the organization, decided in the layer that owns decisions.

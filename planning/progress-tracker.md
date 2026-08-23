@@ -360,7 +360,7 @@ Re-run rather than taken on report: `pnpm lint` and `pnpm typecheck` clean, 42 r
 | `src/domain/__tests__/resolve-edges.test.ts` | 26 tests over the four resolution rungs, exclusivity, and shuffled external-manager merging |
 | `src/domain/__tests__/break-cycles.test.ts` | 20 tests over one-, two-, and three-member cycles and deterministic shuffled cuts |
 | `src/domain/__tests__/reconcile.test.ts` | 21 tests over the three checks and conservation law |
-| `package.json` | `test` changed to `pnpm bake:fixture && vitest run`, making stale fixture output fail the suite |
+| `package.json` | `test` changed to `pnpm bake:fixture && vitest run`, ensuring the suite consumes freshly generated fixture output; the scheduled workflow's later diff gate is what makes a repair fail CI |
 
 The generated fixture measured **49 walked · 46 placed · 3 quarantined · 13 findings**, exercised all six §F.1 codes, produced two external nodes and two unresolved placeholders, and reconciled to 8 roots at `maxDepth` 9 with `principalRootId = emp-001`. All five hashed collections held at least two elements.
 
@@ -517,7 +517,7 @@ Every created or completed application file follows the locked domain, URL, acce
 |---|---|
 | `src/components/Tree.tsx` | WAI-ARIA tree/treeitem/group semantics; one roving tab stop; Arrow Left/Right/Up/Down, Home, End, Enter, and Space behavior; **Restore default view** control for the depth-2 policy; expand/collapse controls; canonical order; 15-sibling cap; selected, match, context, duplicate-name, departed, synthetic, and null-field states; URL-backed person selection preserving the other five dimensions |
 | `src/components/PersonCard.tsx` | Preselected-node rendering only; person details with critical versus informational null treatment; root-to-person reporting line; manager and capped direct-report links; record findings rendered as label/code badge → evidence → next step → owner, with diagnosis and severity omitted; outside-filter notice and clear-filter link; deliberately reduced external-manager/unresolved-manager variants; mobile back action without inventing domain data |
-| `src/components/ReviewBar.tsx` | Complete source, reconciliation, provenance, grouped findings, redacted-log, and no-token-verification evidence; fixed code-level guidance including diagnosis and color-coded severity is shown once per group while affected records and variable evidence remain tabular under **Affected records**; exact `?review=open` and `?source=` synchronization; real-source empty-log state no longer claims that no Remote walk occurred |
+| `src/components/ReviewBar.tsx` | Complete source, reconciliation, provenance, grouped findings, redacted-log, and no-token-verification evidence; source changes atomically clear dataset-owned `person` and `dept` while preserving `q`, `departed`, and `review`; fixed code-level guidance including diagnosis and color-coded severity is shown once per group while affected records and variable evidence remain tabular under **Affected records**; real-source empty-log state no longer claims that no Remote walk occurred |
 | `src/app/page.tsx` | Server-owned selection of committed snapshot or generated fixture; all six URL dimensions; forest assembly and filtering; principal-root default; preselected card lookup outside filtered results; locale-aware header; bounded hash-matched sync-log excerpt; desktop editorial composition; explicit-person mobile overlay; exact fixture metadata |
 | `next.config.ts` | Global `X-Robots-Tag: noindex` response header while retaining the locked compiler configuration |
 
@@ -564,7 +564,7 @@ This handoff was superseded on 2026-08-22 by Session 10, which re-closed P4 afte
 
 ---
 
-## Current Working Session — Session 10 · P4 toolbar correction and tree hierarchy refinement
+## Session 10 · P4 toolbar correction and tree hierarchy refinement
 
 **Module:** P4a toolbar interaction repair and departure-visibility disclosure
 **Task Ref:** `build.md` 1.12 §H.3 · `delivery.md` 1.16 §2 Application · §4 P4a · §7 checks 6a–6b
@@ -658,10 +658,91 @@ Await the requester's visual inspection. Any follow-up must remain inside the ap
 
 ---
 
+## Current Working Session — Session 11 · P1–P3 audit repairs · complete
+
+**Modules:** `lib/ingest.ts` · `lib/schemas.ts` · `lib/snapshot-writer.ts` · `domain/build-forest.ts` · `domain/filter.ts` · `domain/ledger.ts` · `domain/reconcile.ts` · `domain/types.ts` · both scripts · four test suites
+**Task Ref:** `delivery.md` §2, §5, §7 · `build.md` §D.4, §D.6, §G.1, §G.2, §G.3, §H.3, §I.1
+**Status:** ✅ Complete — `build.md` 1.21 · `delivery.md` 1.26
+**Date:** 2026-08-22
+
+Three audit rounds, one working session: P1 (sync path and ledger), P2 (assembly half), P3 (fixture and ledger comments), followed by a documentation pass correcting voice and length in the two specification documents.
+
+### P1 · The duplicate-employment-ID guard
+
+`build.md` F1 and §G.2 check 1 both asserted "no duplicate employment ID" and **nothing implemented it**. `walkBulk` carries three pagination guards — repeated cursor, page cap, zero-progress page — none of them this one, and `reconcile.ts` claimed in a comment that `walkBulk` throws on duplicates.
+
+Three decisions taken before writing code:
+
+1. **Where** — `lib/ingest.ts`, not `walkBulk`. The client returns `unknown[]` by construction so one malformed employment cannot fail a page of a hundred (§G.1), which means transport cannot read an `id` without becoming the parser §H.2 keeps out of it. Ingest is the first point where every id in the read is legible. The draft reasoning — that §I.2's mocked-transport exclusion makes a walk-level guard untestable — was **wrong** and was discarded: §I.2 exempts pure policy functions explicitly.
+2. **What it does** — report, and let both writers refuse. Not a ledger code: §F.1 is closed at six and "the export returned this person twice" has no People Ops remedy. Not a throw: the exit code and message belong at the call site, the division `serialize`'s refusal already uses, so `ingest`'s never-throws contract is intact.
+3. **Why it matters, which is not what F1 says** — the conservation law balances on a duplicate: two records really arrived, both normalize, both produce an edge. What breaks is §G.3, where `people` sorts on `id` and a non-unique key passes arrival order into `contentHash`.
+
+Counted at stage one, so a repeat survives one copy failing the projection. Five named tests. The refusal path was exercised end to end by duplicating `emp-001` in the fixture: exit 4, correct message, sibling untouched, fixture restored byte-identical.
+
+### P1 · Four comment corrections
+
+| File | Correction |
+| :--- | :--- |
+| `domain/ledger.ts` | Sort key stated as three terms, with the null-id reason the third exists for |
+| `lib/snapshot-writer.ts` | Drift rate is over every walked record, which is what §G.1 says and what the code computes |
+| `lib/schemas.ts` | **Proven by compiler probe against the installed Zod:** the annotation catches *removal* and *widening*; an added key and a narrowed field both compile silently. Only narrowing has a runtime consequence, and it is the one that quarantines healthy records |
+| `domain/types.ts` | `EmploymentRecord` is declared in that file, not in `lib/schemas.ts` |
+
+One proposed finding was **dropped**: `reconcile.ts`'s null-`listTotalCount` branch is already pinned deliberately, §D.4 and `delivery.md` §1 G3 both describe an H0 re-plan condition rather than a runtime state, and the branch is unreachable from both writers.
+
+### P2 · Two assembly-half defects
+
+**The department matcher disagreed with the menu it ships with.** `departmentOptions` counts a present-but-blank name into the Unassigned bucket; `matchesDepartment` tested `=== null`. A blank-named person was offered a bucket that selected nobody. One predicate now decides both halves. Exposure was zero — 0 blank names across both committed sources — so no artifact moved. The property test that should have caught it passed because its three people excluded the one input that breaks it; it now has a fourth.
+
+**Assembly totality was proved in one module and lost in the artifact.** `descend` skipped an already-visited child without removing the link, so a cyclic edge set produced a forest that still contained the loop: `buildForest` returned normally and `filterForest` then raised `RangeError: Maximum call stack size exceeded`. Reproduced before the fix.
+
+The fix is in the producer, not each consumer: **the second link is severed**. `Tree.tsx`'s `collectNodes` walks `children` with no visited set either and is closed P4 scope, so guarding `filter.ts` alone would have left the render path exposed while touching more code. `directReports` and `totalDescendants` fold after the severing, so both counts describe surviving links. The same removal covers the two-parent case.
+
+### P2 · Five documentation drifts
+
+A quotation attributed to `build.md` §H.3 that was never in it; `maxDepth` claiming a toolbar reader removed in 1.12 (`ff359ad` — introduced in `579d8a9`, and the residual mention in `build.md` itself survived to 1.19) while the same comment argued a reader-less field should not exist; §G.3 pinning a collator with no owner named; §H.3 silent on blank department names, on the bucket being conditional, and on the search fold; §G.1's assembly row naming two failure modes where the code defends three. All five closed.
+
+### P3 · Four edits, no behaviour
+
+`ledger.ts`'s `DataIssue` field count (eight, not seven) and its composed-action rationale; `reconcile.test.ts` asserting the property its name claims rather than repeating the test above it; `delivery.md` §5 recording `emp-004`'s ` product  design ` fold variant.
+
+**Three submitted items were rejected on evidence.** `presentation.diagnosis` is already rendered at `ReviewBar.tsx:208-212`, so the one item filed as a functional gap would have produced a duplicate block. The `build.md` "self-contradiction" is revision 1.16 read as a standing claim when 1.17 already supersedes it. Two further items had been closed in earlier rounds of this session.
+
+### Documentation pass
+
+`build.md` and `delivery.md` were rewritten in specification voice where these rounds had left audit narrative in them — a spec states what the system does, not what an audit found — and the revision rows added this session were compressed to one entry each. Three current-state test counts were corrected to 212 (`README.md` twice, `decisions.md` once); historical counts in revision rows are left as history.
+
+`delivery.md` §5's `emp-004` row was corrected on a point of causation: normalising that fixture value leaves `filter.test.ts` passing at 14 while proving nothing, whereas removing the fold from `filter.ts` is what drops it to 13. The row now attributes each consequence to its actual cause.
+
+### Scheduled sync
+
+The initial `.github/workflows/sync.yml` gate ran the full suite after `pnpm sync` while two tests treated the 2026-08-22 capture's exact topology and departure counts as permanent expectations. That did not protect scheduled freshness: a legitimate Remote change failed before commit. Moving the suite before sync alone was also rejected because it merely delayed the same failure — the next run would check out the newly committed snapshot and meet the stale numbers then.
+
+Closed in `build.md` 1.24 and `delivery.md` 1.29. Exact measurements remain historical evidence here, while the real-snapshot tests now derive the complete identity set, root reachability, principal-root eligibility, maximum depth, departure population, hidden count, and retained count from the current artifact, including valid empty and no-principal states. The workflow adds a YAML-native `@fileoverview` header and executes one fail-closed chain: locked install; lint, typecheck, and offline tests before the token is exposed; an explicit diff proving the test bake did not repair a stale generated fixture; credentialed sync; the data-invariant suite against the synchronized snapshot; then an exact two-file commit only when `data/snapshot.json` and `data/sync.log` changed together under §G.3. A failed preflight, sync, postflight, or pair check leaves the previous committed snapshot live.
+
+The first GitHub-hosted run exposed one clean-checkout defect before reaching the token: `layout.tsx` correctly used Next's generated `LayoutProps<'/'>`, but `pnpm typecheck` invoked `tsc` before any command had generated `.next/types`. Local runs had inherited those globals from `next dev`. Closed in `build.md` 1.25 and `delivery.md` 1.30 by making `typecheck` run `next typegen` first; a temporary workspace with no `.next` passed under Node 24.7. The three setup actions also moved from their Node 20-based majors to the current Node 24-based majors. No application, sync, snapshot, or credential behavior changed.
+
+### Verification state
+
+- Focused mutable-snapshot repair: **59/59 tests passed** across `build-forest.test.ts` and `filter.test.ts`.
+- Clean-workspace `pnpm typecheck`: passed under Node 24.7 with no pre-existing `.next`; route types were generated before `tsc`.
+- `pnpm typecheck`, `pnpm lint`: passed in the working tree.
+- `pnpm test`: **212/212 across 13 files**; fixture bake reports the content hash unchanged.
+- `sync.yml`: parsed successfully as YAML; checkout, pnpm setup, and Node setup use their Node 24-based v6 majors.
+- The explicit fixture-drift command exits clean. `data/` and `fixtures/` remain byte-identical; neither content hash moved.
+- The 2026-08-22 P2a measurements remain re-derived historical evidence: 42 roots, `maxDepth` 4, 191 nodes, *Kate Roy* at 112 descendants; fixture 8 roots, `maxDepth` 9, 50 nodes. They are no longer future-data acceptance criteria.
+- `pnpm sync` was not run locally because it is the credentialed operation this workflow owns.
+
+---
+
 ## Completion Log
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-23 | **Clean-runner typecheck and action-runtime repair** (`build.md` 1.25 · `delivery.md` 1.30) | ✅ Reproduced the CI-only `LayoutProps` failure without `.next`; `pnpm typecheck` now runs `next typegen` before `tsc --noEmit`. The clean-workspace probe and local typecheck/lint passed, YAML parsed, 212 tests passed with an unchanged fixture, and setup actions moved to Node 24-based majors. |
+| 2026-08-23 | **Scheduled-sync liveness repair** (`build.md` 1.24 · `delivery.md` 1.29) | ✅ Mutable Remote population facts no longer act as permanent test schema. The workflow preflights lint/typecheck/tests before exposing the token, fails on generated-fixture drift, verifies the synchronized snapshot with data-invariant tests, and commits only the matched `data/` pair on a content-hash change. The credentialed sync itself was not run locally. |
+| 2026-08-22 | **Atomic source-transition URL repair** (`build.md` 1.22 · `delivery.md` 1.27) | ✅ ReviewBar source changes now remove stale `person` and `dept` in the same URL replacement, preserve visible cross-source search/departed/review state, and allow the destination forest to select its own principal root. This closes both stale-id selection failure and the hidden invalid-department edge case. |
+| 2026-08-22 | **Session 11 — P1–P3 audit repairs** (`build.md` 1.21 · `delivery.md` 1.26) | ✅ Two behavioural fixes: F1's duplicate-employment-ID clause implemented in `lib/ingest.ts` with both writers refusing, and `descend` severing a second parent link so the returned forest is acyclic for every consumer — `filterForest` had been raising `RangeError` on a forest `buildForest` returned normally. The department matcher now agrees with its own menu on a blank name. Nine documentation drifts closed across `build.md`, `delivery.md` and code comments, one of them settled by compiler probe. Four submitted findings rejected on evidence, including a ReviewBar gap that did not exist. 212 tests, clean typecheck and lint, no artifact or hash movement. |
 | 2026-08-22 | **Diagnosis surface simplification and severity styling** (`build.md` 1.17 · `delivery.md` 1.21 · `design.md` 1.2) | ✅ PersonCard now retains label/code badge, evidence, next step, and owner while omitting diagnosis and severity. ReviewBar retains both, renames the table heading to **Affected records**, and maps info/low/medium/high severity pills to existing gray/yellow/orange/red semantic tokens through global classes. |
 | 2026-08-22 | **Diagnosis provenance and consequence restoration** (`build.md` 1.16 · `delivery.md` 1.20) | ✅ The exact six label/diagnosis/next-step mappings now originate in authoritative `build.md` §F.1.1 and are transcribed by delivery before code consumes them. `issuePresentation` includes diagnosis; both UI surfaces render it before evidence. `RECORD_INVALID` locally states that the record is excluded from the chart, and `MGR_EXTERNAL` states that its line cannot be verified. |
 | 2026-08-22 | **Diagnosis presentation refactor** (`build.md` 1.15 · `delivery.md` 1.19) | ✅ Three phases complete. `ledger.ts` centrally exposes human labels and remediation-only next steps while preserving stored audit actions. PersonCard is evidence-first with code badges. ReviewBar **Findings** renders fixed code-level guidance once, promotes shared evidence, and restricts tables to affected records plus variable evidence. Documentation is synchronized across all three planning files. |

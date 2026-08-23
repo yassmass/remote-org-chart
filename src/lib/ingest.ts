@@ -99,6 +99,23 @@ export type IngestResult = {
   /** One `RECORD_INVALID` per rejected element, in input iteration order. */
   issues: DataIssue[];
   counts: IngestCounts;
+  /**
+   * Employment ids that arrived more than once, ascending and distinct.
+   *
+   * Empty on every trustworthy read, and the caller must refuse to write when it
+   * is not — build.md §G.1's Pagination row treats a repeated employment as a
+   * walk that cannot be shown to be complete, and §G.2 check 1 states the
+   * guarantee this field supplies the evidence for.
+   *
+   * Reported rather than thrown, and reported rather than ledgered, for two
+   * separate reasons. It is not a `DataIssue` because §F.1 is a closed set of six
+   * codes describing conditions a named owner can act on, and "the export
+   * returned this person twice" is a fault in the read rather than a task for
+   * People Ops. It is not an exception because the exit code and the operator
+   * message belong at the call site, which is the same division `serialize`'s
+   * refusal already uses.
+   */
+  duplicateEmploymentIds: string[];
 };
 
 /**
@@ -133,6 +150,28 @@ function safeFieldPaths(error: { issues: readonly { path: readonly PropertyKey[]
  * good snapshot with an empty one is how real integrations corrupt customer
  * data. That decision needs both counts returned here, and is not made here.
  *
+ * The same division governs `duplicateEmploymentIds`. This function reports the
+ * repetition; the caller refuses to write, exits non-zero, and leaves the
+ * previous artifact untouched (§G.1, Pagination row).
+ *
+ * ## Why duplicate detection is here and not in the walk
+ *
+ * `walkBulk` returns `unknown[]` by construction: validating inside the transport
+ * layer would let one malformed employment fail a page of a hundred, which §G.1
+ * forbids, so the walk cannot read an `id` off a record without becoming the
+ * parser it deliberately is not (§H.2). This is the first point at which every
+ * id in the whole read is legible, and the last point before the resolution half
+ * starts deriving from it.
+ *
+ * What a repeat would otherwise do is quiet rather than loud. Both copies
+ * normalize into a `Person`, both produce a `ReportingEdge`, and the
+ * conservation law still balances, because two records genuinely did arrive.
+ * §G.3 is where it surfaces: `people` sorts on `id` and `edges` on
+ * `reportEmploymentId`, and that section requires a key **unique within its
+ * collection** precisely because a stable sort passes equal keys through in
+ * arrival order. A repeated id therefore reintroduces cursor order into
+ * `contentHash` — the one property the canonical ordering exists to remove.
+ *
  * ## The canonical diagnostic position
  *
  * A record that fails stage one has no readable id, so the finding needs a stable
@@ -153,6 +192,17 @@ function safeFieldPaths(error: { issues: readonly { path: readonly PropertyKey[]
 export function ingest(raw: readonly unknown[]): IngestResult {
   const records: EmploymentRecord[] = [];
   const issues: DataIssue[] = [];
+
+  /**
+   * How many times each readable id arrived.
+   *
+   * Counted at stage one, over every record the pre-pass could identify, so a
+   * repeat is still detected when one of the copies goes on to fail the
+   * projection. A record that failed the pre-pass has no id to count and cannot
+   * participate: it is already quarantined, and `RECORD_INVALID` findings are
+   * made unique by the canonical position below rather than by an id.
+   */
+  const idOccurrences = new Map<string, number>();
 
   /**
    * Parse stage one once, before emitting any finding.
@@ -219,6 +269,7 @@ export function ingest(raw: readonly unknown[]): IngestResult {
     // records while still displaying a green check.
     const staged = prePass.data;
     if (staged.status === DELETED_STATUS) counts.deletedCount += 1;
+    idOccurrences.set(staged.id, (idOccurrences.get(staged.id) ?? 0) + 1);
 
     // ---- Stage two: can the graph be built from it? -----------------------
     const projected = EmploymentProjection.safeParse(element);
@@ -240,5 +291,12 @@ export function ingest(raw: readonly unknown[]): IngestResult {
     records.push(projected.data);
   }
 
-  return { records, issues, counts };
+  // Sorted so the caller's message is the same on every walk that returns the
+  // same repetition, whatever order the pages arrived in.
+  const duplicateEmploymentIds = [...idOccurrences]
+    .filter(([, occurrences]) => occurrences > 1)
+    .map(([id]) => id)
+    .sort();
+
+  return { records, issues, counts, duplicateEmploymentIds };
 }

@@ -267,9 +267,10 @@ function IssueLedger({ issues }: { issues: DataIssue[] }) {
  *
  * The native `<details>` element supplies disclosure semantics and keyboard
  * behavior. Its state is controlled by `?review=open`, so opening, closing,
- * copying, and restoring the URL produce the same panel. Source changes update
- * only `source`; selected person and filters are deliberately preserved because
- * each URL dimension is independent at this boundary.
+ * copying, and restoring the URL produce the same panel. Source changes clear
+ * `person` and `dept`, because employment ids and department options belong to
+ * one snapshot. Search, departed visibility, and review disclosure remain
+ * intact because their meanings survive a dataset transition.
  *
  * @param props selected snapshot, source state, disclosure state, and safe log
  * @returns the collapsed title strip or complete open evidence surface
@@ -294,7 +295,7 @@ export function ReviewBar({
   /**
    * Replace or remove one Review Bar parameter while preserving the other five.
    */
-  function replaceReviewParameter(name: 'review' | 'source', value: string | null) {
+  function replaceReviewParameter(name: 'review', value: string | null) {
     const next = new URLSearchParams(searchParams.toString());
     if (value === null) {
       next.delete(name);
@@ -304,6 +305,26 @@ export function ReviewBar({
 
     const serialized = next.toString();
     router.replace(serialized === '' ? pathname : `${pathname}?${serialized}`, { scroll: false });
+  }
+
+  /**
+   * Switch snapshots without carrying identifiers or enumerated options from
+   * the previous dataset into the next one.
+   *
+   * Deleting `person` lets the new forest select its own principal root. A
+   * department value is also source-owned: preserving a fixture-only option
+   * can leave the real select visually reset while its stale URL filter still
+   * removes records. Free-text search, departed visibility, and the open review
+   * state remain valid across both committed datasets and are preserved.
+   */
+  function replaceSource(nextSource: SnapshotSelector) {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('source', nextSource);
+    next.delete('person');
+    next.delete('dept');
+
+    const serialized = next.toString();
+    router.replace(`${pathname}?${serialized}`, { scroll: false });
   }
 
   /**
@@ -390,7 +411,7 @@ export function ReviewBar({
             <select
               className="field-control w-full"
               onChange={(event) => {
-                replaceReviewParameter('source', event.currentTarget.value);
+                replaceSource(event.currentTarget.value === 'fixture' ? 'fixture' : 'snapshot');
               }}
               style={{ height: 'var(--compact-row-height)' }}
               value={selectedSource}

@@ -122,7 +122,23 @@ function main(): number {
   }
 
   // ---- The same pipeline scripts/sync.ts composes -------------------------
-  const { records, issues: ingestIssues, counts } = ingest(raw);
+  const { records, issues: ingestIssues, counts, duplicateEmploymentIds } = ingest(raw);
+
+  // The same refusal `scripts/sync.ts` makes, for the same reason and against a
+  // different source of the fault. There is no cursor here, so a repeat is an
+  // editing mistake in the authored fixture rather than an untrustworthy read —
+  // but §G.3's uniqueness requirement does not care which, and a fixture that
+  // violated it would bake an artifact whose ordering is arrival-dependent.
+  if (duplicateEmploymentIds.length > 0) {
+    console.error(
+      `Refusing to bake: fixtures/edge-cases.json declares ${String(duplicateEmploymentIds.length)} employment ` +
+        `${duplicateEmploymentIds.length === 1 ? 'id' : 'ids'} more than once.`,
+    );
+    console.error('Employment ids are the person key, so each must appear exactly once (build.md §D.1, §G.3).');
+    console.error(`  ${duplicateEmploymentIds.join(', ')}`);
+    console.error('fixtures/edge-cases.snapshot.json is untouched.');
+    return EXIT.refused;
+  }
 
   // Read from the data rather than declared as a literal, for the same reason
   // the header renders `snapshot.company.name` rather than a constant (§D.5).

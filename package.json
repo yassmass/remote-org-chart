@@ -9,7 +9,7 @@
     "test": "pnpm bake:fixture && vitest run",
     "bake:fixture": "tsx scripts/bake-fixture.ts",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "sync": "tsx --env-file-if-exists=.env.sync scripts/sync.ts"
   },
   "dependencies": {

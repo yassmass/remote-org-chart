@@ -99,10 +99,15 @@ export function reconcile(
   const issues: DataIssue[] = [];
 
   // ---- Check 1 · Cursor reconciliation ------------------------------------
-  // The walk reached a null terminal cursor with no repeated cursor, no
-  // duplicate id, and no partial page failure. `walkBulk` throws on every path
-  // that would leave this false, so reaching here with `false` means a guard
-  // was removed rather than that a walk went wrong.
+  // §G.2 check 1 has two halves and they are guarded in two different places.
+  // The cursor half — a null terminal cursor, no repeated cursor, no
+  // zero-progress page — belongs to `walkBulk`, which throws on every path that
+  // would leave this flag false, so reaching here with `false` means a guard was
+  // removed rather than that a walk went wrong. The duplicate-employment-id half
+  // belongs to `lib/ingest.ts`, which reports repeats to the caller, and both
+  // scripts refuse to write on a non-empty report — so a duplicate never reaches
+  // this function either. Neither half can be re-derived here: `people` has
+  // already lost the arrival order a repeat would show up in.
   if (!provenance.terminalCursorReached) {
     throw new Error(
       'Reconciliation failed: the bulk walk did not reach a terminal cursor, ' +

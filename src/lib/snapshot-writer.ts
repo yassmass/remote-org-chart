@@ -35,9 +35,19 @@ import type { DataIssue, OrgSnapshot } from '../domain/types';
 /**
  * The rate above which a sync is treated as schema drift rather than dirty data.
  *
- * Expressed against records that reached stage two, which is the population the
- * projection actually judged. build.md §G.1 states the figure; it is named here
- * so the threshold and its reason sit together.
+ * Expressed against **every walked record**, which is what build.md §G.1 says
+ * and what `serialize` below computes: `quarantinedCount / recordCount`. Both
+ * terms are the totals `ingest` takes at stage one, so the numerator includes
+ * the records that failed the pre-pass itself and the denominator includes every
+ * element the walk returned, parseable or not.
+ *
+ * That is the right population rather than an approximation of a better one. A
+ * response whose elements are not employments at all is the clearest case of the
+ * drift this threshold exists to catch, and measuring only the records that
+ * reached stage two would shrink the denominator by exactly those failures —
+ * making the rate look *better* the more comprehensively the contract had
+ * broken. §G.1 states the figure; it is named here so the threshold and its
+ * population sit together.
  */
 const DRIFT_REFUSAL_RATE = 0.2;
 

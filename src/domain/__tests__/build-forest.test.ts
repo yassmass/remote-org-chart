@@ -3,10 +3,11 @@
  *
  * Three dataset sources, and the split is deliberate.
  *
- * The **real snapshot** carries P2a's definition of done and the ordering rules
- * that only matter at scale — 191 people across 42 roots, one of which holds 112
- * descendants while 37 hold none. No hand-built fixture reproduces that shape,
- * and it is the shape the depth-2 default is judged against.
+ * The **real snapshot** exercises ordering and conservation at production scale.
+ * Its exact counts are capture evidence recorded in the progress tracker, not a
+ * permanent contract: the scheduled sync is allowed to add people, roots and
+ * depth. These assertions therefore derive their expectations from whichever
+ * committed snapshot the test run received.
  *
  * The **baked edge-case fixture** is the resolved artifact the deployed fixture
  * view will consume. It proves that assembly preserves the external-manager,
@@ -15,17 +16,17 @@
  *
  * **Inline snapshots** isolate branches whose exact preconditions are easier to
  * state locally. The
- * full walk raised exactly one of six §F.1 codes: there is no cycle, no external
- * manager and no dangling pointer anywhere in `data/snapshot.json`, so both
- * `principalRootId` exclusions and the synthetic kind rank would otherwise be
- * untested prose. These are `OrgSnapshot`s built by hand because that is what
- * this module consumes — the authored `fixtures/edge-cases.json` holds *raw
- * records*, which feed the resolution half, and its baked sibling is the third
- * source above.
+ * 2026-08-22 full walk raised exactly one of six §F.1 codes: that capture had no
+ * cycle, external manager or dangling pointer, so both `principalRootId`
+ * exclusions and the synthetic kind rank need stable focused coverage even if a
+ * later scheduled snapshot happens to contain them. These are `OrgSnapshot`s
+ * built by hand because that is what this module consumes — the authored
+ * `fixtures/edge-cases.json` holds *raw records*, which feed the resolution half,
+ * and its baked sibling is the third source above.
  *
  * @see planning/build.md §G.3 — ordering and determinism
  * @see planning/build.md §H.3 — the principal root
- * @see planning/delivery.md §4 P2a — the definition of done asserted below
+ * @see planning/delivery.md §2 — mutable-snapshot test ownership
  */
 import { describe, expect, it } from 'vitest';
 
@@ -140,14 +141,45 @@ function rootIds(roots: OrgNode[]): string[] {
 describe('buildForest · the real committed snapshot', () => {
   const forest = buildForest(realSnapshot);
 
-  // delivery.md §4, P2a's definition of done, stated as its own assertion.
-  it('returns a Forest whose principalRootId names a person root', () => {
-    expect(forest.principalRootId).not.toBeNull();
+  // The scheduled workflow commits legitimate organization changes, so this
+  // suite must detect assembly loss without treating yesterday's population as
+  // today's schema. The snapshot itself supplies the complete node identity set;
+  // every one must exist in `byId` and be reachable from a root exactly once.
+  it('places every current snapshot node in one root-reachable forest', () => {
+    const expectedIds = [
+      ...realSnapshot.people.map((person) => person.employmentId),
+      ...realSnapshot.externalManagers.map((manager) => manager.id),
+      ...realSnapshot.unresolvedManagers.map((manager) => manager.id),
+    ].sort();
+    const reachableIds = new Set<string>();
+    const stack = [...forest.roots];
 
-    const principal = forest.roots.find((root) => root.id === forest.principalRootId);
-    expect(principal).toBeDefined();
-    expect(principal?.kind).toBe('person');
-    expect(principal?.person).not.toBeNull();
+    while (stack.length > 0) {
+      const node = stack.pop();
+      if (node === undefined) continue;
+      expect(reachableIds.has(node.id)).toBe(false);
+      reachableIds.add(node.id);
+      stack.push(...node.children);
+    }
+
+    expect([...forest.byId.keys()].sort()).toEqual(expectedIds);
+    expect([...reachableIds].sort()).toEqual(expectedIds);
+  });
+
+  // A current company may legitimately have no eligible person root: every
+  // visible head could be synthetic or cycle-cut. §H.3 requires `null` then;
+  // otherwise the largest eligible subtree wins, with ascending id as the tie.
+  it('derives principalRootId from the current eligible person roots', () => {
+    const cycleCutIds = new Set(
+      realSnapshot.edges
+        .filter((edge) => edge.basis === 'cycle_broken')
+        .map((edge) => edge.reportEmploymentId),
+    );
+    const candidates = forest.roots
+      .filter((root) => root.kind === 'person' && !cycleCutIds.has(root.id))
+      .sort((a, b) => b.totalDescendants - a.totalDescendants || (a.id < b.id ? -1 : 1));
+
+    expect(forest.principalRootId).toBe(candidates[0]?.id ?? null);
   });
 
   // The assembly-side reading of F5: every person the resolver placed is in the
@@ -158,12 +190,13 @@ describe('buildForest · the real committed snapshot', () => {
     expect(placed).toHaveLength(realSnapshot.people.length);
   });
 
-  // §H.3 binds the toolbar's "N levels deep" to this field, and build.md 1.5
-  // rewrote that string against the measured walk as "4 levels deep". Roots at
-  // depth 0 is the only reading under which the specification's own example is
-  // correct on its own data.
+  // Roots sit at depth 0, so `maxDepth` is the greatest zero-indexed depth
+  // rather than a count of levels. The toolbar string that once carried this
+  // reading was removed in build.md 1.12, which is exactly why the reading is
+  // asserted here: §D.4 now states it with no product surface to demonstrate it.
   it('reports maxDepth as the greatest zero-indexed node depth', () => {
-    const deepest = Math.max(...[...forest.byId.values()].map((node) => node.depth));
+    const depths = [...forest.byId.values()].map((node) => node.depth);
+    const deepest = depths.length === 0 ? 0 : Math.max(...depths);
     expect(forest.maxDepth).toBe(deepest);
     expect(forest.roots.every((root) => root.depth === 0)).toBe(true);
   });
@@ -199,9 +232,9 @@ describe('buildForest · the real committed snapshot', () => {
     }
   });
 
-  // §G.3's shuffle assertion, on the dataset whose 42 roots and 112-descendant
-  // principal make a wrong answer visible. Cursor pagination guarantees no
-  // stable ordering between walks, so arrival order genuinely varies.
+  // §G.3's shuffle assertion runs on the current production-scale topology.
+  // Cursor pagination guarantees no stable ordering between walks, so arrival
+  // order genuinely varies even as the organization's counts change.
   it('is invariant under input order', () => {
     for (const seed of [1, 7, 99]) {
       const shuffled = buildForest(
@@ -492,5 +525,69 @@ describe('buildForest · totality (build.md §G.1)', () => {
       stack.push(...node.children);
     }
     expect(reachable.size).toBe(3);
+  });
+
+  // Terminating here is not the same as returning something safe to walk, and
+  // the difference was a live defect: `descend` skipped an already-visited child
+  // without removing the link, so the returned forest still contained the loop
+  // and `filterForest` exhausted the stack on it while this function returned
+  // normally. The guarantee belongs to the artifact, so it is asserted with a
+  // walk that carries **no** visited set — the walk every consumer writes.
+  it('returns an acyclic forest, so a consumer walking children terminates', () => {
+    const forest = buildForest(
+      snapshotOf({
+        people: [person('p1', 'Ada'), person('p2', 'Grace'), person('p3', 'Alan')],
+        edges: [reportsTo('p1', 'p2'), reportsTo('p2', 'p3'), reportsTo('p3', 'p1')],
+      }),
+    );
+
+    const seen: string[] = [];
+    const stack = [...forest.roots];
+    // Bounded only by the node count: an unbroken loop would exceed it, and the
+    // guard is what turns a hung test into a failing one.
+    while (stack.length > 0 && seen.length <= forest.byId.size) {
+      const node = stack.pop();
+      if (node === undefined) continue;
+      seen.push(node.id);
+      stack.push(...node.children);
+    }
+
+    expect(seen).toHaveLength(3);
+    expect(new Set(seen).size).toBe(3);
+  });
+
+  // The same removal covers a node named as a report by two different managers,
+  // which build.md §D.1 also rules out — one employment has at most one manager.
+  it('gives a node claimed by two parents a single surviving link', () => {
+    const forest = buildForest(
+      snapshotOf({
+        people: [person('p1', 'Ada'), person('p2', 'Grace'), person('p3', 'Alan')],
+        edges: [rootEdge('p1'), rootEdge('p2'), reportsTo('p3', 'p1'), reportsTo('p3', 'p2')],
+      }),
+    );
+
+    const parents = [...forest.byId.values()].filter((node) =>
+      node.children.some((child) => child.id === 'p3'),
+    );
+    expect(parents).toHaveLength(1);
+    expect(forest.byId.get('p3')?.depth).toBe(1);
+  });
+});
+
+describe('buildForest · depth and path agree on both committed sources', () => {
+  // §D.4 defines `pathToRoot` as the ancestor ids nearest first, and `depth` as
+  // the distance from a root. The two are the same measurement written twice, so
+  // they can disagree only if the descent is wrong — and P2a's definition of
+  // done claims the identity over every node rather than over a sampled one.
+  it.each([
+    ['real', realSnapshot],
+    ['fixture', fixtureSnapshot],
+  ])('holds depth === pathToRoot.length over every node of the %s snapshot', (_name, snapshot) => {
+    const forest = buildForest(snapshot);
+
+    for (const node of forest.byId.values()) {
+      expect(node.depth).toBe(node.pathToRoot.length);
+    }
+    expect(forest.byId.size).toBeGreaterThan(0);
   });
 });

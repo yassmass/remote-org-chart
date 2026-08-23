@@ -24,6 +24,7 @@ import realSnapshotJson from '../../../data/snapshot.json';
 import fixtureSnapshotJson from '../../../fixtures/edge-cases.snapshot.json';
 import { buildForest } from '../build-forest';
 import { departmentOptions, filterForest, UNASSIGNED_DEPARTMENT } from '../filter';
+import { isDeparted } from '../normalize';
 import type { OrgNode, OrgSnapshot, Person, ReportingEdge } from '../types';
 
 type PersonOverrides = Partial<Omit<Person, 'employmentId' | 'name'>>;
@@ -124,7 +125,7 @@ const NO_FILTER = { q: null, dept: null, hideDeparted: false } as const;
  */
 const fixtureSnapshot = fixtureSnapshotJson as unknown as OrgSnapshot;
 
-/** The committed real snapshot, used only for the exact 45/41/4 acceptance fact. */
+/** The mutable committed snapshot used for production-scale filter invariants. */
 const realSnapshot = realSnapshotJson as unknown as OrgSnapshot;
 
 describe('filterForest · the generated edge-case snapshot', () => {
@@ -449,14 +450,31 @@ describe('filterForest · the departed toggle (§F.2)', () => {
     ).toEqual(expected);
   });
 
-  it('pins the committed snapshot departure visibility to 45 total, 41 hidden, 4 retained', () => {
-    const result = filterForest(buildForest(realSnapshot), NO_FILTER);
+  // Exact departure counts belong to the capture that produced them, not to the
+  // filter contract. This integration case derives both sides independently from
+  // the current snapshot so a scheduled data change can publish while a dropped,
+  // retained, or miscounted person still fails deterministically.
+  it('accounts for every departed person in the current committed snapshot', () => {
+    const forest = buildForest(realSnapshot);
+    const shown = filterForest(forest, NO_FILTER);
+    const hidden = filterForest(forest, { ...NO_FILTER, hideDeparted: true });
+    const departedBefore = [...forest.byId.values()].filter(
+      (node) => node.person !== null && isDeparted(node.person),
+    );
+    const departedAfter = [...hidden.forest.byId.values()].filter(
+      (node) => node.person !== null && isDeparted(node.person),
+    );
 
-    expect(result.departureVisibility).toEqual({
-      total: 45,
-      hiddenWhenEnabled: 41,
-      retainedWithReports: 4,
-    });
+    expect(shown.departureVisibility.total).toBe(departedBefore.length);
+    expect(shown.departureVisibility.retainedWithReports).toBe(departedAfter.length);
+    expect(shown.departureVisibility.hiddenWhenEnabled).toBe(
+      departedBefore.length - departedAfter.length,
+    );
+    expect(
+      shown.departureVisibility.hiddenWhenEnabled +
+        shown.departureVisibility.retainedWithReports,
+    ).toBe(shown.departureVisibility.total);
+    expect(hidden.departureVisibility).toEqual(shown.departureVisibility);
   });
 });
 
@@ -552,9 +570,22 @@ describe('departmentOptions · the menu half (build.md §H.3)', () => {
 
   // A present-but-blank department is not a department; folding it would produce
   // the empty-string key and a menu row with no text.
-  it('treats a blank department name as unassigned rather than as a row', () => {
-    const options = departmentOptions([person('p1', 'Ada', { department: { id: 'd1', name: '   ' } })]);
+  //
+  // Both halves are asserted, and the second half is the one that was wrong: the
+  // menu counted a blank name into the bucket while the matcher tested `=== null`
+  // alone, so the row was offered and then selected nobody. A menu assertion on
+  // its own cannot see that — it never asks the matcher anything.
+  it('treats a blank department name as unassigned in the menu and in the filter', () => {
+    const blank = person('p1', 'Ada', { department: { id: 'd1', name: '   ' } });
+    const options = departmentOptions([blank]);
     expect(options).toEqual([{ key: 'unassigned', label: UNASSIGNED_DEPARTMENT }]);
+
+    const forest = buildForest(
+      snapshotOf({ people: [blank], edges: [rootEdge('p1')] }),
+    );
+    const matched = filterForest(forest, { ...NO_FILTER, dept: UNASSIGNED_DEPARTMENT }).matchedIds;
+
+    expect([...matched]).toEqual(['p1']);
   });
 
   it('returns nothing for an empty people set', () => {
@@ -568,6 +599,11 @@ describe('departmentOptions · the menu half (build.md §H.3)', () => {
       person('p1', 'Ada', { department: { id: 'd1', name: 'Engineering' } }),
       person('p2', 'Grace', { department: { id: 'd1', name: 'engineering' } }),
       person('p3', 'Alan', { department: { id: null, name: null } }),
+      // The fourth person is the whole point of the property. A blank name is
+      // counted into the Unassigned option by `departmentOptions`, so if the
+      // matcher disagrees the count below is short by exactly this record while
+      // every other assertion in this file still passes.
+      person('p4', 'Grace H', { department: { id: 'd2', name: '  ' } }),
     ];
     const forest = buildForest(
       snapshotOf({ people, edges: people.map((p) => rootEdge(p.employmentId)) }),
@@ -584,5 +620,51 @@ describe('departmentOptions · the menu half (build.md §H.3)', () => {
     }
     // And between them the options account for everyone exactly once.
     expect(covered).toBe(people.length);
+  });
+});
+
+/**
+ * The mirror of `build-forest.test.ts`'s cyclic case, on the other side of the
+ * assembly half.
+ *
+ * `filterForest` recurses over `children` in two places — the narrowing pass and
+ * the departure measurement — and neither carries a visited set, because neither
+ * needs one: `buildForest` severs a second link into an already-claimed node, so
+ * the forest it returns is acyclic even when the edge set it was given was not.
+ *
+ * That inheritance is the assertion. It was not true until it was measured — the
+ * descent used to skip the back-edge without removing it, and this exact input
+ * raised `RangeError: Maximum call stack size exceeded` here while `buildForest`
+ * returned normally. A guarantee proved in one module and consumed in another is
+ * worth a test in the consumer, or the next change to the producer silently ends
+ * it (build.md §G.1).
+ */
+describe('filterForest · totality over a cyclic edge set (build.md §G.1)', () => {
+  const cyclic = buildForest(
+    snapshotOf({
+      people: [person('p1', 'Ada'), person('p2', 'Grace'), person('p3', 'Alan')],
+      edges: [reportsTo('p1', 'p2'), reportsTo('p2', 'p3'), reportsTo('p3', 'p1')],
+    }),
+  );
+
+  it('narrows without exhausting the stack, and keeps every node reachable', () => {
+    const result = filterForest(cyclic, NO_FILTER);
+
+    expect(result.forest.byId.size).toBe(3);
+    expect(result.matchedIds.size).toBe(0);
+  });
+
+  it('measures departure visibility over the same forest', () => {
+    expect(filterForest(cyclic, NO_FILTER).departureVisibility).toEqual({
+      total: 0,
+      hiddenWhenEnabled: 0,
+      retainedWithReports: 0,
+    });
+  });
+
+  it('applies a query to it like any other forest', () => {
+    const result = filterForest(cyclic, { ...NO_FILTER, q: 'Ada' });
+
+    expect([...result.matchedIds]).toEqual(['p1']);
   });
 });

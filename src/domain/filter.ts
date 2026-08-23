@@ -12,13 +12,16 @@
  * `pathToRoot`, `directReports`, `totalDescendants` — is carried through
  * unchanged, and so are `maxDepth` and `principalRootId` on the forest itself.
  *
- * That is not an optimisation, it is build.md §H.3 twice over. *"The
- * chain-to-root breadcrumb always renders the person's real ancestors, filtered
- * or not; a reporting line narrowed by a search box would be a different fact
- * than the one F4 promises."* And *"the conservation law and `maxDepth` are
- * properties of the sync and of the organization, not of a query."* A manager
- * with forty reports must not read *1 direct report* because a search happened
- * to match one of them. **The view narrows; the facts do not.**
+ * That is not an optimisation. build.md §H.3 requires it of the breadcrumb in
+ * so many words — *"The chain-to-root breadcrumb always renders the person's
+ * real ancestors, filtered or not; a reporting line narrowed by a search box
+ * would be a different fact than the one F4 promises."* — and the same reading
+ * governs every other derived field, which the specification states as a
+ * property of where they are computed rather than as a second sentence about
+ * queries: §D.4 fixes them during `buildForest`, and `maxDepth` is a fact about
+ * the organization the snapshot describes. A manager with forty reports must not
+ * read *1 direct report* because a search happened to match one of them.
+ * **The view narrows; the facts do not.**
  *
  * ## Why matches travel beside the forest rather than on it
  *
@@ -127,11 +130,10 @@ export type FilterResult = {
  * one reads wrong at the call site: `foldSearchText(department.name)` for a
  * grouping key is visibly the wrong tool.
  *
- * **Whether search should collapse whitespace is genuinely undetermined.**
- * build.md fixes the fold for grouping and says nothing about the query path, so
- * the three-step rule is retained as-is rather than settled here. The visible
- * consequence, recorded rather than hidden: a query typed with a double space
- * will not match a value stored with a single one.
+ * **build.md §H.3 now settles this**, where the docblock previously recorded it
+ * as undetermined: the three-step rule is the specified one, and the consequence
+ * it accepts is named there — a query typed with a double space will not match a
+ * value stored with a single one.
  *
  * NFC precedes lowercasing for the same reason it does in `foldKey` — a search
  * that missed `José` because the query spelled it with a combining accent would
@@ -185,12 +187,25 @@ export type DepartmentOption = {
  * this because §D.1 makes `department_id` nullable independently of the name, so
  * the id cannot address every bucket and cannot address the null one at all.
  *
- * The sentinel test is deliberately an exact comparison while real departments
- * are compared under `foldKey`. build.md §H.3 calls it "the literal
- * `Unassigned`", and the exactness earns something: a company with a real
- * department named lowercase *unassigned* still reaches the folded branch and
- * filters to its actual members, rather than being swallowed by the null bucket.
- * Only the exact string collides, which is the limitation as stated.
+ * ## A present-but-blank name is unassigned, in both halves
+ *
+ * build.md §H.3 routes a department that is present but blank to the Unassigned
+ * bucket, and `departmentOptions` below has always applied that rule when it
+ * builds the menu. This matcher tested `=== null` alone, so the two halves
+ * disagreed on exactly one input: a blank-named person was counted into the
+ * bucket the menu offers and then matched by nothing — not by *Unassigned*,
+ * whose test they failed, and not by any real row, since their fold key is the
+ * empty string and no row carries it. One predicate, applied twice, is what the
+ * §H.3 assignment of both halves to this module exists to guarantee; the rule
+ * is stated once in build.md and read here rather than restated.
+ *
+ * ## The sentinel is exact where departments are folded
+ *
+ * build.md §H.3 calls it "the literal `Unassigned`", and the exactness earns
+ * something: a company with a real department named lowercase *unassigned* still
+ * reaches the folded branch and filters to its actual members, rather than being
+ * swallowed by the null bucket. Only the exact string collides, which is the
+ * limitation as stated.
  *
  * Synthetic nodes belong to no department and therefore match no department
  * selection. They can still appear in the result, but only as ancestors of a
@@ -201,9 +216,15 @@ function matchesDepartment(node: OrgNode, dept: string): boolean {
   const { person } = node;
   if (person === null) return false;
 
-  if (dept === UNASSIGNED_DEPARTMENT) return person.department.name === null;
-  if (person.department.name === null) return false;
-  return foldKey(person.department.name) === foldKey(dept);
+  const name = person.department.name;
+
+  // Null and blank are one bucket, and it is the only bucket they are in: a
+  // person with no readable department belongs to Unassigned and to nothing
+  // else, whichever of the two shapes the source used.
+  if (name === null || name.trim() === '') return dept === UNASSIGNED_DEPARTMENT;
+
+  if (dept === UNASSIGNED_DEPARTMENT) return false;
+  return foldKey(name) === foldKey(dept);
 }
 
 /**

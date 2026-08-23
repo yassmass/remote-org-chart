@@ -151,14 +151,36 @@ export type PrePassRecord = z.infer<typeof PrePassSchema>;
  * build.md §E.4 refuses to accept. Strict validation applies to identifiers
  * only.
  *
- * ## The explicit annotation
+ * ## The explicit annotation, and exactly what it catches
  *
  * The schema is annotated against `EmploymentRecord` rather than left to
  * inference. That type is declared in `domain/types.ts`, because `normalize()`
  * consumes it and build.md §H.2 forbids the domain from importing `lib/` —
- * dependencies point inward. The annotation is what makes the two agree
- * mechanically: a field added here without being added there, or narrowed in one
- * place and not the other, fails to compile instead of drifting quietly.
+ * dependencies point inward.
+ *
+ * The annotation is an assignability check on the parsed output, so it is
+ * one-directional and worth stating precisely rather than as "they cannot
+ * drift". It fails to compile when this schema **drops** a field the record
+ * declares, or **widens** one past what the record admits — both leave the
+ * output unassignable to `EmploymentRecord`. It compiles silently when this
+ * schema **adds** a key the record does not declare, or **narrows** one, because
+ * either output is still assignable.
+ *
+ * Only one of those two silent cases has a consequence at runtime, and it is the
+ * narrowing. A schema stricter than the record — requiring a `job_title` the
+ * projection types as nullable, say — quarantines healthy employments as
+ * `RECORD_INVALID`, which is precisely the false-positive generator §E.4 refuses
+ * when it declines to validate Remote's status enum strictly. The projection
+ * below is therefore written to state nullability at every optional field rather
+ * than relying on the annotation to notice.
+ *
+ * The added-key case is inert here — an extra key would be parsed and then
+ * dropped by `normalize()`, never reaching the snapshot — and closing it would
+ * cost a `satisfies Record<keyof EmploymentRecord, z.ZodType>` on a hoisted
+ * shape object, which catches the extra key and still says nothing about
+ * narrowing. It is not worth the indirection for a case with no observable
+ * effect; the field list in §D.2 is the authority, and the projection-shape test
+ * in §I.1 is what asserts no unexpected key reaches a serialized snapshot.
  *
  * @see planning/build.md §D.2 — the projected field list
  * @see planning/build.md §E.4 — every row of the contract table above
