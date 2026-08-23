@@ -1,9 +1,11 @@
 # Org Chart — Build Specification
 
-**Version:** 1.12 · 2026-08-22. Revision history at the foot of this document.
+**Version:** 1.19 · 2026-08-22. Revision history at the foot of this document.
 
-**System:** Organizational chart for the company the API token resolves to. In the issued sandbox that is **CatarinaFDE Demo2** (`5ca666ff-…`, 191 employments), not the "Acme Sandbox Corp" the engagement brief describes — see §D.5.
+**Project:** **acme-org-chart** (the package name in `package.json`).
+**System:** Organizational chart for the company the API token resolves to. The project name is **acme-org-chart**; the issued sandbox company is **CatarinaFDE Demo2** (`5ca666ff-…`, 191 employments), not the "Acme Sandbox Corp" the engagement brief describes — see §D.5.
 **Data source:** Remote Customer API (sandbox) · `gateway.remote-sandbox.com/v1`
+**Deployment:** The real UI is confirmed live at **https://remote-org-chart.vercel.app** as of 2026-08-22.
 **Budget:** 8 hours of focused work
 **Document status:** Authoritative. This is the single specification for what is built, how it behaves, and what it guarantees.
 
@@ -72,8 +74,8 @@ An engineer opening the deployed URL with no context, no credentials, and no set
 | # | Use case | System obligation |
 |---|---|---|
 | R1 | Open the public URL cold and see a populated chart | No login, no empty state, no client-side fetch on first paint |
-| R2 | Understand the hierarchy without interacting | Tree expanded to depth 2 by default, server-rendered |
-| R3 | Inspect how imperfect data is handled | The integrity panel is present on every view inside the review bar (§H.3), and is deep-linkable |
+| R2 | Understand the hierarchy without interacting | Every root branch is open by default, exposing its immediate reports; report branches start collapsed |
+| R3 | Inspect how imperfect data is handled | The Data diagnosis panel is present on every view inside the review bar (§H.3), and is deep-linkable |
 | R4 | Establish whether the data can be trusted | Capture line in the header on every view; the full provenance block, including the walk's own counters, in the review bar |
 | R5 | Clone the repo and run it with no `.env` | `pnpm i && pnpm dev` renders the committed snapshot |
 | R6 | Exercise the edge-case handling | The review bar's source selector switches the deployed app to the edge-case fixture |
@@ -85,8 +87,8 @@ Owns the workforce data, not the integration. Every feature traces to one of the
 | # | Use case | System obligation |
 |---|---|---|
 | P1 | "Who reports to whom across the company?" | Tree with direct-report counts and collapse/expand |
-| P2 | "Who has no manager, and who is unreachable in the hierarchy?" | Integrity panel: `ROOT_NO_MANAGER`, `MGR_DANGLING`, `MGR_EXTERNAL`, and the same finding on the affected person's card |
-| P3 | "What exactly do I send HR to fix?" | Every ledger row carries a reason code, a privacy-safe detail, a severity, an owner, and the action that resolves it |
+| P2 | "Who has no manager, and who is unreachable in the hierarchy?" | Data diagnosis panel: `ROOT_NO_MANAGER`, `MGR_DANGLING`, `MGR_EXTERNAL`, and the same finding on the affected person's card |
+| P3 | "What exactly do I send HR to fix?" | Every finding retains a reason code, privacy-safe evidence, severity, owner, and next step; the UI presents fixed code-level guidance once and variable record evidence separately |
 | P4 | "Where does one person sit, and what is their chain to the top?" | Selecting a person renders the full chain to root |
 | P5 | "Is this chart complete?" | Conservation counter and count reconciliation, displayed on screen |
 
@@ -100,10 +102,10 @@ Every requirement is a testable statement. `Brief` denotes a requirement stated 
 |---|---|---|---|
 | **F1** | `pnpm sync` walks company identity, a control total, and all employments into one normalized, client-safe snapshot | Bulk walk reaches `next_cursor === null` with no repeated cursor and no duplicate employment ID; `listTotalCount === recordCount − deletedCount`; total requests equal `2 + ceil(N/100)` | Brief |
 | **F2** | Build a reporting **forest** from the employment set, recording how each edge was determined | Unit tests over fixtures for: multi-root, cycle, self-manager, dangling pointer, external manager, duplicate name. Every `ReportingEdge` carries a `basis` | Brief |
-| **F3** | Render a collapsible hierarchical tree as the primary visualization, expanded to depth 2 | Every node card shows name, job title, department, and direct-report count. Fully operable by keyboard with `role="tree"` semantics | Brief |
+| **F3** | Render a collapsible hierarchical tree as the primary visualization. Root branches open by default; every direct report's own branch starts collapsed | First paint shows who reports directly to each root without flooding the view with the next level. Every node card shows name, job title, department, and direct-report count. Fully operable by keyboard with `role="tree"` semantics | Brief |
 | **F4** | Show a person's full reporting line to the root | Selecting a person renders `CEO → VP → Director → person`; the selection is reflected in the URL as `?person=<employmentId>` and restores on paste | Brief |
-| **F5** | Handle missing data and structural anomalies gracefully and **visibly** | No record is silently dropped: `recordCount === nodesPlaced + recordsQuarantined`, asserted in a unit test. The arithmetic that proves the claim — `walked · deleted · listed · placed · quarantined` — is always visible in the toolbar on every view; no disclosure interaction is required to reach it | Brief |
-| **F6** | **Integrity panel** — every exception with a reason code, a privacy-safe detail, a severity, an owner, and the action that resolves it | One row per `DataIssue`, stating what to do and who does it, grouped by `scope` so record findings and sync findings are never mixed. Record-scoped findings additionally render on the affected person's card | Added |
+| **F5** | Handle missing data and structural anomalies gracefully and **visibly** | No record is silently dropped: `recordCount === nodesPlaced + recordsQuarantined`, asserted in a unit test. The toolbar always shows `listed · charted`; it adds `quarantined` only when nonzero. The complete `walked · deleted · listed` and `walked · placed · quarantined` equations remain in Data diagnosis | Brief |
+| **F6** | **Data diagnosis panel** — every exception with a reason code, diagnosis, privacy-safe evidence, severity, owner, and the next step that resolves it | ReviewBar findings group by `scope` and code. Human label, code badge, diagnosis, owner, severity, and next step render once per code; affected records and variable evidence remain row-level. Evidence identical across a group renders once. Record-scoped findings additionally render label/code badge → evidence → next step → owner on the affected person's card; diagnosis and severity remain in ReviewBar | Added |
 | **F7** | Provenance on every view | The header carries the capture line in plain language and the viewer's locale, with relative age alongside. The full block — `apiCallCount`, `pageCount`, `terminalCursorReached`, `countReconciled`, `contentHash` — renders in the review bar. Correct for both sources | Added |
 | **F8** | Runs with zero credentials, and the edge-case dataset is selectable **on the deployed system** | `git clone && pnpm i && pnpm dev` with no `.env` renders the full chart. The review bar's source selector switches between the committed snapshot and the fixture, and the selection is reflected in the URL | Added |
 | **F9** | Filter the tree by name, job title, or department | Typing a query narrows the tree to matching nodes and their ancestors, with ancestors marked as context rather than as matches. Selecting a department — including the Unassigned bucket — narrows it the same way, and the two compose. Both are reflected in the URL | Added |
@@ -172,7 +174,7 @@ A record that fails **the pre-pass itself** has no readable identity, and the in
 | `ExternalManager` | A manager named on a record but not managed through Remote. Synthetic, namespaced, rendered in the tree, excluded from the conservation law |
 | `UnresolvedManager` | A placeholder standing in for a `manager_employment_id` that points outside the fetched set. One per distinct missing ID |
 | `ReportingEdge` | Makes *how* a reporting line was determined a first-class inspectable fact rather than an implementation detail |
-| `DataIssue` | One row of the exception ledger. The Integrity panel and the audit record are the same object |
+| `DataIssue` | One row of the exception ledger. The Data diagnosis panel and the audit record are the same object |
 | `OrgNode` | Everything the tree and the breadcrumb need, precomputed once during forest construction |
 | `Forest` | A forest, not a tree. Multiple roots are the normal case, not an error |
 | `Provenance` | Answers "where did this number come from, and when" without asking the author |
@@ -254,7 +256,7 @@ type DataIssue = {
   displayName: string | null;
   safeDetail: string;          // no email, no token, no raw Remote payload
   suggestedOwner: 'People Ops' | 'Integration owner';
-  suggestedAction: string;     // the fix, not the fault — templated per code in ledger.ts
+  suggestedAction: string;     // audit-compatible diagnosis + next step, fixed per code in ledger.ts
 };
 
 type Provenance = {
@@ -310,22 +312,22 @@ type Forest = {
 
 ### D.5 The two sources
 
-| Source | Selector value | Served file | Header copy | Role |
+| Source | Selector value | Served file | Header identity | Role |
 |---|---|---|---|---|
-| **Committed snapshot** | `?source=snapshot` (default) | `data/snapshot.json` | `CatarinaFDE Demo2 · Data captured 22 Aug, 3:13 PM · today` | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
-| **Edge-case fixture** | `?source=fixture` | `fixtures/edge-cases.snapshot.json` | `Demo data — synthetic fixture, not real company data` | The zero-credential run path and the demonstration surface for §F |
+| **Committed snapshot** | `?source=snapshot` (default) | `data/snapshot.json` | `CatarinaFDE Demo2` plus capture line | The real organization. Written by `pnpm sync`, committed, ships in the bundle |
+| **Edge-case fixture** | `?source=fixture` | `fixtures/edge-cases.snapshot.json` | `Edge Case Fixture` plus capture line | The zero-credential run path and the demonstration surface for §F |
 
 Both served files are `OrgSnapshot`s, so `source.ts` statically imports one or the other and never converts. The fixture's served form is **generated, not authored**: `fixtures/edge-cases.json` holds raw records and drives ingest plus the resolution-half tests; the resolution half produces the `.snapshot.json` beside it, and assembly-half tests consume that generated `OrgSnapshot` because it is their actual input contract. Both forms are committed and the bake runs before the suite.
 
 That indirection is what makes F8's claim true rather than merely plausible. Authoring the served form directly would state the resolver's output as the resolver's input, so every ledger-code test would pass even if `resolve-edges.ts` were wrong — the same defect that keeps `isDeparted` a predicate rather than a stored field (§E.4). The sibling is regenerated by the command CI runs, so a stale one fails the build rather than the eye.
 
-**The fixture's own `company.name` is `Edge Case Fixture`.** The real path reads the name from `/v1/identity/current`; the fixture makes no such call and no raw record carries one, so the value has to be fixed somewhere and it is fixed here. It renders in the header beside the amber band, so it is deliberately not company-shaped — a plausible-looking name would work against the band rather than with it. `company.id` is `fixture-company` for the same reason.
+**The fixture's own `company.name` is `Edge Case Fixture`.** The real path reads the name from `/v1/identity/current`; the fixture makes no such call and no raw record carries one, so the value has to be fixed somewhere and it is fixed here. It is deliberately not company-shaped, and `company.id` is `fixture-company` for the same reason.
 
 **The company name is rendered from `snapshot.company.name`, never from a constant.** H0 established that the issued sandbox resolves to *CatarinaFDE Demo2* with 191 employments, not the *Acme Sandbox Corp* at ~42 that the engagement brief and Remote's own first-call documentation describe. No code changed as a result — the header was already specified to read the snapshot — but the example copy above is now the real string, and the README states the discrepancy rather than repeating the brief's illustrative name.
 
 The fixture is **selected, never fallen back to**. Synthetic records must never be served as though they were the customer's organization — the one case where usability and integrity genuinely conflict, and integrity wins. If `data/snapshot.json` is absent or unparseable, the system renders the empty state of §F.2 naming the cause, not the fixture.
 
-**When the fixture is selected it is unmistakable, including out of context.** The page carries a full-width amber band with the persistent text *Demo data — synthetic fixture, not real company data*, and the document title changes to match so a browser-tab screenshot is unambiguous too. Colour alone would fail WCAG SC 1.4.1 at Level A, and a screenshot circulating without its page is the realistic way synthetic data gets mistaken for real.
+**When the fixture is selected its source remains explicit without a header banner.** The header renders the data-owned name *Edge Case Fixture*, the Data diagnosis source selector identifies the fixture, and the document title changes to match. The former *Demo data — synthetic fixture, not real company data* banner is intentionally removed from the header as redundant.
 
 The header reports what the data **is**, and always renders age relatively with the absolute time alongside, so a reader never has to subtract dates to learn how stale the chart is.
 
@@ -426,7 +428,7 @@ Every row below is a documented inconsistency or trap found during the API audit
 | Bulk accepts **only** `company_id`, `cursor`, `limit` — no status or type filter, though the minimal list endpoint offers all three | Archived and deleted employments arrive unbidden | All visibility filtering happens in the domain layer. This is an API-surface asymmetry, not an implementation shortcut |
 | The list endpoint excludes deleted records; bulk does not | A naive `total_count === recordCount` check fails permanently | The invariant subtracts: `listTotalCount === recordCount − deletedCount`. **Verified against the complete walk of 2026-08-22 and confirmed deleted-only.** Bulk returned 191 and the list endpoint reported 191, while 25 records were `archived`, 45 carried an offboarded lifecycle stage and 19 an inactive user status — none of which the list endpoint excludes. The residual is zero and the identity stands as written. It remains true that `deletedCount` was 0 in this sandbox, so the subtraction itself is exercised only by the fixture |
 | `country` is a full object (`NullableCountry`), not a string | Projecting it whole would drag country-specific form schemas into a public artifact and multiply snapshot size | Exactly two leaves — `name` and `alpha_2_code`. A test asserts the projected object carries no other keys. The whole field is nullable, so both leaves are `string \| null` |
-| The bulk `status` enum is **wider** than Remote's own employment-statuses guide, adding `pre_hire`, `created_awaiting_reserve`, `created_reserve_paid`, `job_title_review`, `pending_post_self_enrollment_actions`, and `offboarding` | A strict `z.enum()` quarantines healthy records the moment Remote adds a value, inflating `RECORD_INVALID` and turning the Integrity panel into a false-positive generator | `status`, `user_status`, `type`, and `lifecycle_stage` parse as `z.string()` and render as received. Strict validation applies to identifiers only |
+| The bulk `status` enum is **wider** than Remote's own employment-statuses guide, adding `pre_hire`, `created_awaiting_reserve`, `created_reserve_paid`, `job_title_review`, `pending_post_self_enrollment_actions`, and `offboarding` | A strict `z.enum()` quarantines healthy records the moment Remote adds a value, inflating `RECORD_INVALID` and turning the Data diagnosis panel into a false-positive generator | `status`, `user_status`, `type`, and `lifecycle_stage` parse as `z.string()` and render as received. Strict validation applies to identifiers only |
 | **"Terminated" is not a Remote employment status.** No such value exists in either vocabulary | Filtering on it silently matches nothing | Departure is detected from three signals together: `status ∈ {offboarding, archived, deleted}`, `lifecycle_stage === 'offboarded'`, or `user_status ∈ {inactive, cancelled, deleted}`. **H0 correction:** `termination_date` *is* present on bulk records, contrary to the audit's claim that it appears only on the single-record endpoint — but it is the weakest of the four signals and adding it changes no outcome. On the sampled page it was non-null on 6 records, all 6 already flagged by the three signals, while 7 further departed records carried it null. It stays out of the §D.2 projection. **The rule is a predicate over `Person`, never a stored field** — a stored field would be hand-authored into the fixture, making the fixture assert the rule instead of exercising it. The fixture carries the three raw signals; the rule stays under test |
 | Bulk prose states `files` is always `null`, while the embedded schema declares it a required array | A faithful validator fails every record | The narrow projection ignores `files` entirely |
 | `manager_employment_id` is populated only when the manager is also managed through Remote, and is null otherwise | Assuming the ID is always present drops every externally-managed report | The resolution ladder in §D.6 exists precisely for this |
@@ -455,7 +457,7 @@ Two delivery semantics belong in the README because they are counterintuitive an
 
 Edge cases divide into two kinds, and the division is deliberate.
 
-A **ledger code** is a data-integrity event: something about the source data that a human may need to act on. The Integrity panel is a work queue for a People Operator (P3), and a queue that mixes "this employment is in a reporting cycle" with "this name contains an emoji" trains its reader to ignore it.
+A **ledger code** is a diagnostic event: something about the source data that a human may need to act on. The Data diagnosis panel is a work queue for a People Operator (P3), and a queue that mixes "this employment is in a reporting cycle" with "this name contains an emoji" trains its reader to ignore it.
 
 A **rendering rule** is expected robustness: the system displays unusual but valid data correctly. It is specified and tested, but it produces no row, because there is nothing for anyone to fix.
 
@@ -471,6 +473,19 @@ A **rendering rule** is expected robustness: the system displays unusual but val
 | `CYCLE_BROKEN` | A reporting loop of any length, **including a self-manager** | DFS detects it, one edge is cut deterministically, the member holding that edge is re-parented to a root, and the full loop is named in the ledger. **One row per cycle**, not one per member | high | People Ops |
 | `RECORD_INVALID` | A record fails schema validation on a field the graph depends on | Quarantined with the parse error attached. The sync continues; one malformed employee never blanks the chart | high | Integration owner |
 | `COUNT_MISMATCH` | `listTotalCount ≠ recordCount − deletedCount` | Snapshot still written and served. **Sync-scoped:** shown in the review bar and in the disclosed conservation detail, never on a person card | high | Integration owner |
+
+#### F.1.1 Locked presentation copy
+
+This table is the authority for operator-facing issue copy. `delivery.md` §3 transcribes it; `ledger.ts` implements it. No component authors or rewrites any of these strings. The stored `suggestedAction` remains `Diagnosis + " " + Next step` so existing snapshots retain their audit contract, while `issuePresentation(code)` exposes the three presentation fields separately.
+
+| Code | Label | Diagnosis | Next step |
+|---|---|---|---|
+| `ROOT_NO_MANAGER` | `No manager assigned` | `No manager is set.` | `If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.` |
+| `MGR_EXTERNAL` | `Manager outside Remote` | `Their manager is named but not managed through Remote, so the reporting line cannot be verified.` | `Onboard the manager to Remote to make this link authoritative.` |
+| `MGR_DANGLING` | `Manager record not found` | `Their manager record could not be found in this company.` | `Re-select the manager in Remote so the link points to a current employment.` |
+| `CYCLE_BROKEN` | `Reporting loop detected` | `This reporting line loops back on itself.` | `Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.` |
+| `RECORD_INVALID` | `Employment record unreadable` | `This record could not be read and is excluded from the chart.` | `Check the field named above against the Remote API contract.` |
+| `COUNT_MISMATCH` | `Employment counts disagree` | `The employment list and the bulk export disagree on how many people exist.` | `Re-run the sync; if it persists, the walk may be incomplete.` |
 
 A self-manager is a reporting cycle of length one and the same DFS resolves it identically, so it is `CYCLE_BROKEN` with a loop length of 1 rather than a second name for one behaviour.
 
@@ -495,9 +510,9 @@ Each has a test.
 
 | Case | Rule |
 |---|---|
-| Null in a **critical** field — `jobTitle`, `department` | Renders an explicit `Missing` marker naming the owner to contact, never a bare em-dash. Unassigned department is additionally its own bucket in the tree and the filter |
+| Null in a **critical** field — `jobTitle`, `department` | Never renders a bare em-dash. The dense tree uses the concise `Missing job title` or `Missing department` marker. PersonCard key details retain the actionable `State (Action)` format `Missing <field> (Contact People Ops)` at normal field-value size, with alert color alone distinguishing it. These nulls do not create a ledger row; Data diagnosis remains scoped to the §F.1 structural and sync findings. Unassigned department is additionally its own bucket in the tree and the filter |
 | Null in an **informational** field — `country`, `updatedAt`, `shortId`, `userStatus` | Renders an em-dash. Never `undefined`, never `null`, never an empty gap |
-| Two people share a full name | Disambiguated in the UI by `short_id` and department. Never merged — the employment ID is the only identity |
+| Two people share a full name | Never merged — the employment ID is the only identity. The tree keeps title/department beside the name for scanning; selecting either record exposes its `short_id` in PersonCard for definitive provenance |
 | A manager with 40+ direct reports | First 15 shown, "show 27 more" expands. The layout never grows horizontally without bound |
 | Depth beyond 8 levels | Indentation caps; the tree scrolls inside its own container; depth is shown numerically on the node |
 | Non-Latin scripts, RTL, emoji, very long names | Correct bidi handling; node cards wrap rather than clip; no fixed-width truncation of names |
@@ -579,7 +594,7 @@ The measurement is four counts over the completed walk — deleted, archived, of
 
 > `recordCount === nodesPlaced + recordsQuarantined`
 
-Asserted in a unit test and rendered as always-visible toolbar arithmetic on every view. "Handles edge cases gracefully" is unverifiable as prose; as `walked · deleted · listed · placed · quarantined` on screen, anyone can check it in seconds. It is kept on the operator surface rather than delegated to a disclosure or reviewer-only panel because P5 — "is this chart complete?" — is an operator question, and the answer belongs where the operator already is.
+Asserted in a unit test and represented on every view by the toolbar's `listed · charted` summary, with `quarantined` appended only when nonzero. The complete `walked · deleted · listed` and `walked · placed · quarantined` equations remain in Data diagnosis. The operator surface stays concise while any exception remains immediately visible.
 
 ### G.3 Determinism
 
@@ -687,17 +702,17 @@ It is also why `EmploymentRecord` is declared in `domain/types.ts` rather than i
 │           Data captured 21 Aug, 2:14 PM · yesterday           │
 ├───────────────────────────────────────────────────────────────┤
 │ TOOLBAR   [ search ]  [ department ▾ ]  [ ] hide departed     │
-│           191 walked · 0 deleted · 191 listed ✓ · 191 placed  │
-│           0 quarantined · 45 departed shown · N matching      │
+│           191 listed ✓ · 191 charted · 1 quarantined ·        │
+│           45 departed shown · N matching                      │
 ├──────────────────────────────────┬────────────────────────────┤
 │ CHART                      2/3   │ PERSON CARD          1/3   │
 │   collapsible tree, depth 2      │   name · job title · dept  │
 │   connector rails · legend       │   type · status · country  │
 │   expand all · collapse all ·    │   last updated             │
-│   reset to depth 2               │   reporting line to root   │
+│   restore default view           │   reporting line to root   │
 │                                  │   manager →                │
 │                                  │   direct reports →         │
-│                                  │   data integrity (cond.)   │
+│                                  │   data diagnosis (cond.)   │
 ├──────────────────────────────────┴────────────────────────────┤
 │ REVIEW BAR                                            ⌃ / ⌄   │
 │   source · ledger by scope and code · reconciliation ·        │
@@ -719,9 +734,9 @@ The departed toggle is here rather than in the review bar, because it is a view 
 
 **Match identity is returned alongside the filtered forest, never stored on a node.** The filter must distinguish a node that matched from an ancestor retained for context, and `OrgNode` is derived once during forest construction and never recomputed per render (§D.4) — putting a match flag on it would make node contents depend on transient query state, so the same forest would hold different values for different requests. The set of matched ids travels beside the forest instead, and no separate count exists — it is the size of that set. `N matching` renders only when a query or department is active: the departed toggle removes nodes rather than matching them. When present, it follows the departed state on the same responsive count line, separated by ` · `.
 
-The accounting line begins with the conservation claim at operator altitude: `191 walked · 0 deleted · 191 listed ✓ · 191 placed · 0 quarantined`, then appends departed state and, when active, match count using the same ` · ` separator. **The conservation portion is always visible and always reports the unfiltered snapshot.** A filtered forest is a `Forest` like any other, so reading accounting from the current view would make it appear to certify only the visible records. Walk/list/delete/place/quarantine are properties of the sync and of the organization, not of a query. Any `scope: 'sync'` finding renders as a visible warning directing the operator to the review details; there is no second toolbar disclosure whose state could hide it. Conservation, departure visibility, match count, and count reconciliation remain different meanings even though one visually consistent responsive line presents them.
+The accounting line begins `N listed ✓ · N charted`. It appends `N quarantined` only when that count is nonzero, then departed state and, when active, `N matching`, using the same ` · ` separator. Against the committed snapshot the default is `191 listed ✓ · 191 charted · 45 departed shown`; a one-record quarantine would read `191 listed ✓ · 190 charted · 1 quarantined · 45 departed shown`. **Listed, charted, and quarantined always report the unfiltered snapshot.** A filtered forest is a `Forest` like any other, so reading accounting from the current view would make it appear to certify only visible records. Walked and deleted remain available in Data diagnosis rather than the toolbar. Any `scope: 'sync'` finding renders as a visible warning directing the operator to the review details. Accounting, departure visibility, match count, and count reconciliation remain different meanings even though one visually consistent responsive line presents them.
 
-**Chart.** Collapsible tree, expanded to depth 2, `role="tree"` with roving tabindex per NFR 2. Parentage is drawn with connector rails — borders on the indent guide rather than paths measured between cards — and any measurement that proves necessary stays inside this component and may not introduce shift on expand. View controls are exactly three: expand all, collapse all, reset to depth 2. Expansion, sibling reveal, and roving focus are local to one filtered tree view. Changing `q`, `dept`, or `departed` starts a new view at the depth-two default; otherwise clearing a narrow result can restore the full forest while retaining expansion state calculated for the narrow forest. Changing `person` or `review` does not reset the tree because neither changes its roots.
+**Chart.** Collapsible tree with every root branch open and every report branch collapsed by default, `role="tree"` with roving tabindex per NFR 2. Parentage is drawn with connector rails — borders on the indent guide rather than paths measured between cards — and any measurement that proves necessary stays inside this component and may not introduce shift on expand. View controls are exactly three: **Expand all**, **Collapse all**, and **Restore default view**. The default view exposes each root's immediate reports without automatically opening those reports' teams. Expansion, sibling reveal, and roving focus are local to one filtered tree view. Changing `q`, `dept`, or `departed` starts a new view at the root-open default; otherwise clearing a narrow result can restore the full forest while retaining expansion state calculated for the narrow forest. Changing `person` or `review` does not reset the tree because neither changes its roots.
 
 Roots render in the order fixed by §G.3, which is what makes depth 2 a usable default on this dataset rather than a wall of undifferentiated cards: the largest genuine subtrees lead, and the synthetic kinds collect at the end. The rule in §F.2 that caps a parent at fifteen visible children applies to the root list itself for the same reason — a forest is the child list of an imaginary parent, and the layout must not grow without bound at the top level either.
 
@@ -731,15 +746,15 @@ The legend is required rather than decorative: the tree carries four visually di
 
 **The selection is computed during forest construction and exposed as `Forest.principalRootId`; the card reads one field.** It cannot be computed in the component, because the `cycle_broken` exclusion reads `basis`, which lives on an edge and not on a node — a component would have to join against `edges` at selection time, which puts domain logic in the view against §H.2. Copying `basis` onto every node to avoid the join would spread edge state across the whole tree for a property meaningful only at roots. Forest construction already visits every root, so deciding it there costs nothing.
 
-Manager and each direct report are links that set `?person=`, so the card is a navigation surface rather than a dead end. The data-integrity block is conditional and renders **only `scope: 'record'` findings** for that employment, leading with `suggestedAction` and carrying the code as secondary text — People Ops acts on the sentence, not the identifier.
+Manager and each direct report are links that set `?person=`, so the card is a navigation surface rather than a dead end. The **Data diagnosis** block is conditional and renders only `scope: 'record'` findings for that employment. Each finding renders the F.1.1 human label with its code badge, labelled privacy-safe evidence, remediation-only copy under **Next step**, and the owner as secondary metadata. PersonCard omits diagnosis because the compact card already supplies the label, evidence, and action, and it omits severity because prioritization belongs in ReviewBar. `ledger.ts` still owns all fixed copy; PersonCard authors none.
 
-**Synthetic nodes are selectable, and get a reduced card.** External managers and unresolved-manager placeholders render in the tree, so `?person=external:sofia reyes` is one ordinary click away — the slug keeps the collapsed internal space, because §D.6 rule 2's normalisation has no hyphenation step and the URL encodes it. `OrgNode.person` is null for both. Their card carries the display name, a kind label — *Outside Remote* or *Unresolved manager* — the reports attached to the node, and the `MGR_EXTERNAL` or `MGR_DANGLING` finding with its `suggestedAction`. Every other field of the full card is **omitted rather than em-dashed**: the §F.2 null rules describe a field that is absent from a record, and these fields do not exist for this node at all. Nothing here is a chain to root either, since a synthetic node is always a root and its `pathToRoot` is empty.
+**Synthetic nodes are selectable, and get a reduced card.** External managers and unresolved-manager placeholders render in the tree, so `?person=external:sofia reyes` is one ordinary click away — the slug keeps the collapsed internal space, because §D.6 rule 2's normalisation has no hyphenation step and the URL encodes it. `OrgNode.person` is null for both. Their card carries the display name, a kind label — *Outside Remote* or *Unresolved manager* — the reports attached to the node, and the same compact label/code badge → evidence → next-step → owner sequence for its `MGR_EXTERNAL` or `MGR_DANGLING` finding. Every other field of the full card is **omitted rather than em-dashed**: the §F.2 null rules describe a field that is absent from a record, and these fields do not exist for this node at all. Nothing here is a chain to root either, since a synthetic node is always a root and its `pathToRoot` is empty.
 
 **For an unresolved placeholder the display name and the kind label collapse into one string.** `UnresolvedManager` carries no name — a manager who resolves to nothing has none to carry — so its `OrgNode.displayName` is `Unresolved manager · <missingManagerId>`, and the card omits the kind label rather than printing it twice. The id is shown rather than suppressed because there is one placeholder per distinct missing manager, and `MGR_DANGLING`'s action — re-select the manager in Remote — is unactionable if the operator cannot tell which broken pointer they are looking at. It is also the only reader `missingManagerId` has.
 
 This is the card where P2 and P3 meet — *six people report to someone Remote does not manage, here is who they are, here is what to do* — which makes it worth specifying rather than improvising in the block already carrying the most risk.
 
-**Review bar.** Collapsed by default to its title strip; `?review=open` expands it, which is what makes the integrity panel deep-linkable from the README and the submission email. It holds the source selector, the full ledger grouped by scope and then code, the three reconciliation checks of §G.2, the provenance counters, an excerpt of the sync log, and the pointer to verifying the integration without a token (§I.1). There is no separate integrity route, deliberately: the findings sit on the same page as the data they describe, and no navigation is asked of the reader.
+**Data diagnosis bar.** Collapsed by default to its title strip; `?review=open` expands it, which is what makes the Data diagnosis panel deep-linkable from the README and the submission email. Its **Findings** subsection groups by scope and code. Each group shows the human label and code badge, diagnosis, owner, severity, and remediation-only next step once; severity pills use gray for info, yellow for low, orange for medium, and red for high. Its semantic table labels the record column **Affected records** and contains only affected records and evidence that actually varies. When every row shares the same evidence, that evidence renders once above the table. The bar also holds the source selector, the three reconciliation checks of §G.2, provenance counters, an excerpt of the sync log, and the pointer to verifying the integration without a token (§I.1). There is no separate diagnosis route, deliberately: findings sit on the same page as the data they describe, and no navigation is asked of the reader.
 
 **Selection survives filtering.** `?person=` and the two filter parameters are independent: the tree shows the filtered result, and the card renders the named person whether or not they survive the filter. The alternative — clearing a selection the filter excludes — would mean a pasted URL does not restore what the sender saw, which is the one thing the URL-as-state-container rule exists to guarantee, and it would break F4 for any link sent alongside a filter. When the selected person is not in the current filter the card says so and offers to clear the filter, because a card with no corresponding node in the tree is otherwise an unexplained state. The chain-to-root breadcrumb always renders the person's real ancestors, filtered or not; a reporting line narrowed by a search box would be a different fact than the one F4 promises.
 
@@ -796,7 +811,7 @@ Five indicators, each measured from an artifact the system already produces.
 | Requirement | Satisfied by |
 |---|---|
 | Fetch employee and company data from Remote's API | §E.1 · F1 · capture line in the header, provenance counters in the review bar, and the committed evidence chain of §I.1 |
-| Display the org chart with manager → direct-report relationships | F3 · §D.6 · tree on the landing page, expanded to depth 2, no interaction required |
+| Display the org chart with manager → direct-report relationships | F3 · §D.6 · tree on the landing page with every root's immediate reports visible, no interaction required |
 | Show name, title, department, and reporting line for each person | F3 node cards · F4 chain-to-root breadcrumb |
 | Handle missing data and edge cases gracefully | F5 · F6 · the six codes in §F.1 · the nine rendering rules in §F.2 · the conservation counter |
 | Use one visualization format | F3, the tree |
@@ -839,7 +854,7 @@ All three items carried through 1.3 were closed by the complete walk of 2026-08-
 | # | Open | Outcome |
 |---|---|---|
 | 1 | **The §G.2 count identity.** `listTotalCount === recordCount − deletedCount` was provisional | **Closed — the identity holds, and the three rival formulas are refuted.** 191 walked, 191 listed, 0 deleted, residual zero. None of the three candidate subtrahends is excluded by the list endpoint: 25 archived, 45 offboarded by lifecycle stage, 19 inactive by user status all appear in both counts. `Provenance` gains no field. One limitation carried forward into §G.2: with `deletedCount` at 0, the subtraction term is exercised only by the fixture |
-| 2 | **Four illustrative count strings** still read at the engagement brief's ~42 | **Closed.** Rewritten against the measured walk: `191 walked · 0 deleted · 191 listed ✓ · 191 placed · 0 quarantined`, and `191 people · N levels deep · all accounted for` |
+| 2 | **Four illustrative count strings** still read at the engagement brief's ~42 | **Closed.** The operator-facing contract is now `191 listed ✓ · 191 charted · 45 departed shown`, with nonzero quarantined and active matching counts appended conditionally. The full walk/delete and conservation equations remain in Data diagnosis |
 | 3 | **The §D.2 pre-pass may narrow** | **Closed — it narrows.** The settled identity names only `status`, so `user_status` and `employment_lifecycle_stage` come out of the pre-pass and their counts out of `ingest`. The values they measured are recorded in §G.2 above, so the evidence survives the code that produced it |
 
 **What the walk found that no item anticipated**, each recorded where it belongs rather than here: the sandbox's rate-limit ceiling is 1000 rather than the documented 300 (§E.5), and the full walk raises exactly one §F.1 code. `ROOT_NO_MANAGER` fires 42 times; `MGR_EXTERNAL`, `MGR_DANGLING`, `CYCLE_BROKEN`, `RECORD_INVALID` and `COUNT_MISMATCH` have **zero** instances across all 191 records — H0's four off-page manager references were sampling artifacts of reading one page of two, exactly as it predicted. **Five of the six codes therefore have no real-data instance at all**, which is what `?source=fixture` exists for and is the strongest evidence F8 has (§D.5).
@@ -850,6 +865,13 @@ All three items carried through 1.3 were closed by the complete walk of 2026-08-
 
 | Version | Date | Change |
 |---|---|---|
+| **1.19** | 2026-08-22 | Changes the default hierarchy disclosure from depth two to root-open: first paint exposes every root's immediate reports, while each report's own team starts collapsed and opens only on demand. Restore default view and filtered-tree resets use the same policy; expand/collapse controls and domain data are unchanged. |
+| **1.18** | 2026-08-22 | Separates dense-tree scanning from detail ownership. Tree omits short IDs and owner instructions, uses concise critical-null markers, and relies on adjacent title/department plus selection. PersonCard retains definitive short-ID provenance and actionable missing-field guidance; Data diagnosis remains limited to ledger-backed findings. No domain identity or snapshot field changes. |
+| **1.17** | 2026-08-22 | Keeps diagnosis and color-coded severity prioritization in ReviewBar while simplifying PersonCard findings to label/code badge, evidence, next step, and owner. ReviewBar's record column is locked as **Affected records**; severity reuses the approved gray, yellow-warning, orange-warning, and red-alert palette. |
+| **1.16** | 2026-08-22 | Makes the exact issue label/diagnosis/next-step mapping authoritative in §F.1.1 before delivery or code consumes it. Restores diagnosis to both UI surfaces, including `MGR_EXTERNAL`'s unverifiable-line consequence and `RECORD_INVALID`'s explicit exclusion from the chart. |
+| **1.15** | 2026-08-22 | Refactors diagnosis presentation for both audiences without changing `DataIssue` or snapshot bytes. `ledger.ts` centrally exposes human labels and remediation-only next steps while preserving the existing audit action. PersonCard becomes evidence-first with code badges; ReviewBar's **Findings** groups fixed code-level guidance once and limits rows to affected records plus variable evidence. |
+| **1.14** | 2026-08-22 | Simplifies the toolbar contract to `listed · charted`, conditionally appending nonzero `quarantined`, departed state, and active matching count; the full walked/deleted equations remain in Data diagnosis. Removes the redundant synthetic-fixture banner from the Header while retaining fixture identity through the data-owned company name, source selector, and document title. |
+| **1.13** | 2026-08-22 | Documentation synchronized with the delivered UI: project **acme-org-chart** is distinguished from sandbox company **CatarinaFDE Demo2**; the diagnostic surface is named **Data diagnosis**; the depth-two control is named **Restore default view** while its behavior remains unchanged; PersonCard critical values use `Missing <field> (Contact People Ops)` at normal value size; and the real Vercel UI is recorded as confirmed live. |
 | **1.12** | 2026-08-22 | Closes P4's final presentation decision: conservation arithmetic, departed state, and conditional match count render as one responsive line with ` · ` between every meaning. No domain arithmetic changes. |
 | **1.11** | 2026-08-22 | Closes the tree-state consequence exposed by direct toolbar acceptance. §H.3 now makes the three narrowing dimensions the exact lifetime boundary for local expansion, sibling reveal, and roving focus, so clearing search restores the full depth-two tree rather than a full forest rendered with stale narrow-view state. Selection and review changes remain outside that reset boundary. |
 | **1.10** | 2026-08-22 | Re-locks the toolbar after interaction-level acceptance exposed that URL round-trip alone did not verify its controls. §H.3 makes search live on every input event, makes native clear delete `q`, requires rapid mutations to compose from the latest intended URL, records the full-width compact layout and always-visible conservation arithmetic, and adds domain-owned `departureVisibility` counts with exact off/on/zero strings so the never-orphan exception is visible. F5 is corrected from a disclosure-backed claim to the arithmetic that is now always on the surface. |

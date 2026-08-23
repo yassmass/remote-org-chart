@@ -26,6 +26,13 @@ import type { NextConfig } from 'next';
  */
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  redirects: async () => [
+    {
+      source: '/apple-touch-icon-precomposed.png',
+      destination: '/apple-touch-icon.png',
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: '/:path*',

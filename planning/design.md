@@ -1,6 +1,8 @@
 # Org Chart — Visual Design Specification
 
-**Version:** 1.1 · 2026-08-22
+> **Enforced implementation rule:** Component files must not hard-code visual or design values in JSX, inline styles, utility classes, or component-local CSS. They must reuse the semantic classes and design tokens defined in `src/app/globals.css`. If no existing class or token expresses the required design, add the smallest reusable semantic class or token to `globals.css` first, then consume it from the component. Do not duplicate, reinterpret, or locally override an existing global primitive.
+
+**Version:** 1.5 · 2026-08-22
 **Status:** Authoritative for visual implementation  
 **Functional authority:** [`build.md`](./build.md)  
 **Visual authority:** Remote's live production section identified below
@@ -71,7 +73,7 @@ The reference is a flat editorial interface, not a conventional SaaS dashboard.
 1. One warm-cool light-gray canvas covers the page.
 2. There is no enclosing application shell, floating dashboard frame, or gradient background.
 3. Large black editorial type establishes the page hierarchy.
-4. The primary left surface is mostly borderless. One selected or expanded item becomes a deep-maroon block.
+4. The primary left surface is mostly borderless. Only the selected item becomes a deep-maroon block; expansion remains a compact neutral row state.
 5. Unselected items remain on the canvas and are separated by single gray rules.
 6. The secondary right surface sits over a square blue-gray grid.
 7. White and pale-status cards sit directly on that grid without visible drop shadows.
@@ -132,7 +134,7 @@ These values are resolved from Remote's production Zora theme or decoded from th
 ### 4.2 Color rules
 
 - Use `--canvas` for the page and the unselected tree surface.
-- Use `--selected` only for the selected or expanded primary tree item and closely related selected emphasis. Do not turn the whole page maroon.
+- Use `--selected` only for the selected primary tree item and closely related selected emphasis. Expansion alone never turns a row maroon. Do not turn the whole page maroon.
 - Use `--accent` for the eyebrow, outline controls, tiny markers, and restrained secondary emphasis.
 - Use `--focus` for keyboard focus. Remote's source deliberately uses blue for this accessibility state; the previous rose focus inference is removed.
 - Use `--surface` for the person card and open review panel.
@@ -206,7 +208,7 @@ Map the required org-chart topology onto the reference composition as follows:
 |---|---|
 | Eyebrow + large two-line heading | Product eyebrow + `snapshot.company.name`; capture line immediately below in body/micro type |
 | Left accordion | Toolbar followed by hierarchical org tree |
-| Expanded maroon accordion item | Selected or expanded person/tree item |
+| Expanded maroon accordion item | Selected person/tree item; expansion alone remains compact and neutral |
 | Right square grid | Persistent backdrop for the person-detail region |
 | White/green profile card | Person card; white by default, green only for a genuinely successful integrity state |
 | White task/table card | Open Review Bar content and ledger/reconciliation tables |
@@ -252,11 +254,11 @@ Use Remote's declared Zora scale. The earlier interpolated `20/28/40/56` values 
 
 - At the 1629px gate the accordion uses 24px outer padding, 24px content gap, a 32px lead icon, and a 16px lead-icon gap.
 - The selected item's text starts exactly 72px from its left edge: `24 + 32 + 16`.
-- The measured open first item is 249px high for its current content and grows with content; do not force a maximum.
+- The reference accordion's measured open item is 249px, but that height is not transferred to the org tree: expansion reveals a nested sibling group while the parent row remains 81px. Only the separate detail card grows with content.
 - An unselected item is 81px including its 1px bottom rule: an 80px trigger plus the rule.
 - Accordion items have 16px vertical gaps at `>=768px`.
 - Standard buttons are 40px high. Interactive hit areas must still satisfy the accessibility minimum in §12.
-- The selected block uses Remote's 10px Zora radius.
+- The branded header and selected tree row use Remote's 10px `--radius-panel`; non-selected colored rows and compact toolbar fields use 4px `--radius-control`.
 - Detail-card and recessed-row radii are derived from the Lottie's 12px and 10px source radii, scaled with the `820px` composition. At the 628px frame they resolve to `9.19px` and `7.66px`.
 - No ordinary component uses a 20–32px card radius. Remote's 40px radius is a pill token only.
 
@@ -313,9 +315,13 @@ At the gate the full media frame is 628px square, the visible grid union is 527.
 - The tree inherits `--canvas`; it is not placed inside a white container.
 - Unselected tree items are flat 81px rows including a full-width `--divider` bottom rule.
 - The left icon/status column begins 24px from the row edge. The text column begins 72px from the row edge. The disclosure control ends 24px from the right edge.
-- Connector rails use `--grid-line` at 1px. They are quieter than text and use no glow or drop shadow.
-- A selected or expanded item becomes a `--selected` panel with `--selected-ink`, 10px radius, and 24px padding.
-- At the gate, the selected title and secondary description are 18/27 regular in Bossa and Inter respectively.
+- Every nested sibling group has one logical 1px `--divider` rail assembled from direct-child segments and every child has an explicit elbow into its row. A non-final sibling's segment continues through its subtree because a later sibling still belongs to the same parent; the final visible sibling's segment stops at its elbow, so ancestor rails never dangle through arbitrarily deep last-child subtrees. Synthetic groups use the same geometry with dashed `--accent`. No rail uses glow or drop shadow.
+- Only the selected item becomes a `--selected` panel with `--selected-ink`, 24px padding, and the previous 10px `--radius-panel`. Expanded, selected-path, and selected-direct-report rows remain non-selected and use 4px `--radius-control`.
+- Every unselected row with a parent connector uses `--surface-recessed`; only root rows remain on `--canvas`. This separates card edges from relationship rails at every nesting depth without introducing another token.
+- The selected item remains the same compact 81px row as its peers. At the gate its title is Bossa 18/27; secondary metadata stays in the compact Inter tier.
+- Person name and title/department use the same baseline alignment and exact `--space-2` horizontal gap as `.review-summary-copy`. The end-aligned badge group keeps the same `--space-2` gap from the disclosure action.
+- Ancestors of the selected person and that person's immediate reports use `--surface-hover` plus a narrow `--accent` inline marker. Their connecting elbows and shared branch rail use `--accent`, making the selected reporting path legible without recoloring unrelated rows.
+- The legend remains textual and adds three token-driven swatches: solid divider rail, dashed accent rail, and the approved rose-highlight row treatment. The swatches are `aria-hidden`; the existing text remains the accessible meaning.
 - The circular action treatment is 40px square, white, and contains a thin `--accent` arrow or chevron. It may represent only an action already required by `build.md`.
 - Direct-report and issue badges use the soft-pink treatment, not unrelated category colors.
 - External-manager and unresolved-manager distinctions required by `build.md` retain their text labels and dashed-edge semantics. Use `--accent` for the dashed edge; do not invent a new hue.
@@ -372,17 +378,33 @@ At the gate the full media frame is 628px square, the visible grid union is 527.
 | `.micro-copy` | Typography | Badges, timestamps, capture/provenance details, and secondary codes; Inter micro tier. |
 | `.surface-card` | Base surface | Default person card or open review-card surface. It owns width, padding, radius, white fill, and zero shadow. |
 | `.success-card` | Modifier | Use only as `.surface-card.success-card` for a genuinely successful reconciliation/verification summary. Never apply to failures or neutral cards. |
-| `.selected-panel` | Base surface | Selected or expanded tree item. It is mutually exclusive with `.hairline-row` and owns maroon fill, 24px padding, 10px radius, and the open-state minimum height. |
+| `.selected-panel` | Base surface | Selected tree item or specialized branded surface. In the tree it is never caused by expansion alone. It is mutually exclusive with `.hairline-row` and owns maroon fill plus 24px padding; the specialized branded header keeps the 10px panel radius while `.tree-item.selected-panel` reuses the 4px control radius fixed in §9.3. |
 | `.selected-panel__content` | Descendant | Content column inside `.selected-panel` when a 32px lead icon is present. It supplies the remaining 48px offset needed for the exact 72px text start. Omit it when there is no lead-icon column. |
-| `.hairline-row` | Base surface | Unselected tree item. It is mutually exclusive with `.selected-panel`; it owns 24px padding, the 81px minimum, and the bottom divider. |
+| `.hairline-row` | Base surface | Unselected tree item, whether collapsed or expanded. It is mutually exclusive with `.selected-panel`; it owns 24px padding, the 81px minimum, and the bottom divider. |
 | `.recessed-row` | Base surface | Compact reporting, finding, or ledger row. It owns the recessed fill, scaled row radius, 40px minimum, and 12px inline padding. |
 | `.field-control` | Base control | Search input, department select, or equivalent toolbar field. It owns the 40px minimum, recessed fill, 4px radius, and verified focus treatment. |
-| `.status-pill` | Base status | Neutral/rose status or type badge. It owns 24px minimum height and Inter micro type. |
+| `.status-pill` | Base status | Neutral/rose status or type badge. It owns 24px minimum height, Inter micro type, and no-wrap content so responsive layouts wrap whole pills rather than words inside them. |
 | `.status-pill--success` | Modifier | Use only as `.status-pill.status-pill--success` for verified positive status. |
+| `.severity-pill--info` | Modifier | ReviewBar severity only. Reuses divider gray with default ink. |
+| `.severity-pill--low` | Modifier | ReviewBar severity only. Reuses the verified yellow warning surface, border, and ink. |
+| `.severity-pill--medium` | Modifier | ReviewBar severity only. Reuses the verified orange warning border as its fill with warning ink. |
+| `.severity-pill--high` | Modifier | ReviewBar severity only. Reuses alert red with selected-surface white ink. |
 | `.outline-action` | Base control | Text action only. It owns an exact 40px minimum, Inter 16/24 medium type, 24px inline padding, accent outline, and pill radius. |
 | `.icon-action` | Base control | Icon-only action only. It owns an exact 40×40px box, accent outline, and circular geometry. Provide an accessible name. |
 | `.icon-action--inverse` | Modifier | Use only as `.icon-action.icon-action--inverse` on the maroon selected surface; it changes the circle to white with an accent icon. |
-| `.synthetic-edge` | Relationship rail | Apply to the subtree branch rail that descends from an external or unresolved synthetic manager. It draws only the logical inline-start dashed rail; never apply it to a node/card, where it would become a dashed box. |
+| `.tree-child-group` | Relationship group | Indents one nested sibling group. Its direct child shells, rather than the `<ul>` border, own the rail segments and elbows so descendant height cannot extend a completed branch. |
+| `.tree-child-group--synthetic` | Relationship modifier | Dashed accent rail for a subtree descending from an external or unresolved manager. It never creates a dashed node/card. |
+| `.tree-child-group--selected-branch` | Relationship modifier | Accent rail for the visible branch containing the selected path or the selected person's immediate reports. |
+| `.tree-node-shell--last-visible` | Relationship modifier | Stops the current sibling-group rail exactly at the last visible child's elbow, including when that child owns a deep expanded subtree. Recomputed after the sibling cap is revealed. |
+| `.tree-node-shell--selected-path` | Relationship modifier | Marks the selected person's visible ancestor chain and its elbows; it does not imply selection. |
+| `.tree-node-shell--selected-report` | Relationship modifier | Marks each visible immediate report of the selected person and its elbow. |
+| `.tree-item--expanded` | Tree-row modifier | Neutral recessed expansion state. It never applies the maroon selected surface by itself. |
+| `.tree-item--selected-path` | Tree-row modifier | Restrained surface and inline accent for a visible ancestor of the selected person. |
+| `.tree-item--selected-report` | Tree-row modifier | Restrained surface and inline accent for a visible immediate report of the selected person. |
+| `.tree-node-copy--has-action` | Tree-row descendant modifier | Reserves the desktop disclosure-control space and removes that reservation when the mobile grid assigns the action its own column. |
+| `.tree-node-badges` | Tree-row descendant | End-aligned, internally wrapping badge group. The tree content reserves disclosure space separately, so the group reaches the right content edge only when no branch action exists. |
+| `.tree-legend` / `.tree-legend-item` | Legend structure | Wrapping text-and-swatch layout for the existing three meanings. Does not add a fourth tree state. |
+| `.tree-legend-line` / `.tree-legend-highlight` | Legend swatches | Token-only visual samples of solid rail, dashed rail, and highlighted-row geometry. Always decorative and `aria-hidden`. |
 | `.review-table` | Base table | The semantic integrity ledger table. It owns border separation, header treatment, row rules, and the scaled outer radius. |
 | `.is-success` | Internal state | Valid only on a `<tr>` inside `.review-table`; it applies the success-row fill. It is equivalent in appearance to a successful selected row, not a generic utility. |
 | `.bidi-isolate` | Text utility | Apply to every person-provided string that can mix text directions. It changes bidi behavior only and may accompany one typography class. |
@@ -434,6 +456,7 @@ Remote's production CSS supplies the responsive frame; it is not inferred from t
 - At the 1629px gate, use the exact anchors in §6.
 - Below `768px`, follow `build.md`: one column, tree first, selected person in a full-width overlay driven by `?person=`.
 - Mobile keeps the same colors, 4px/10px/scaled-media radii, dividers, typography hierarchy, and 40px visible controls.
+- Mobile tree rows use two content rows: name/report badges on top and metadata/disclosure below, with the hierarchy marker spanning both. The second row reserves 80% of its content width for metadata and 20% for disclosure. Long copy wraps, pills stay whole, and rail offsets contract without changing relationship semantics.
 - Do not invent a bottom navigation, hamburger menu, floating action button, or card carousel.
 
 ## 12. Accessibility constraints
@@ -494,8 +517,8 @@ Verify:
 5. media frame starts at `865px ± 1px` and is `628px ± 1px` square;
 6. column gap is `101px ± 1px`;
 7. detail grid uses `#b0bcc9` at the exact `70/820` scale and cards use the exact `550/820` width;
-8. selected tree item is `#511621`, 10px radius, 24px padding, with no shadow;
-9. selected title is Bossa 18/27 and expanded copy is Inter 18/27;
+8. selected tree item is `#511621`, uses the previous 10px `--radius-panel`, retains 24px padding, and has no shadow;
+9. selected title is Bossa 18/27 and its secondary metadata remains compact Inter copy;
 10. unselected rows are 81px including 1px `#b3b5b7` rules;
 11. keyboard focus is a 2px `#0564ff` outline with a 1px offset;
 12. white and recessed surfaces use `#ffffff` and `#f6f7f8`;
@@ -527,3 +550,12 @@ Capture and compare all of these, because R1 and R2 prove that the design is a s
 ## Implementation verdict
 
 This document supplies a deterministic light-theme implementation target for P4 using Remote's production Bossa/Inter assets, Zora tokens, computed target-section layout, and exact target Lottie values. It authorizes no content copied from the references and no stylistic invention beyond the mappings explicitly defined above. Dark-theme org-chart mapping remains evidence-gated; the required synthetic disclosure uses Remote's verified yellow scale.
+
+## Revision history
+
+| Version | Date | Change |
+|---|---|---|
+| **1.5** | 2026-08-22 | Locks concise tree content ownership and the responsive two-row tree composition while preserving PersonCard and Data diagnosis responsibilities. |
+| **1.4** | 2026-08-22 | Precision tree CSS pass: colored rows reuse the toolbar control radius; mixed-font row copy follows the Review Bar baseline alignment; badges align to the disclosure/content edge; the legend gains semantic swatches; rails move from subtree-height `<ul>` borders to direct-child segments whose last visible sibling terminates at its elbow. |
+| **1.3** | 2026-08-22 | Approved hierarchy-clarity refinement: maroon is selection-only; expanded rows stay compact; nested sibling groups gain explicit rails and elbows; the selected ancestor path and immediate reports receive restrained accent emphasis. No canvas view, domain behavior, URL state, or design-token family was added. |
+| **1.2** | 2026-08-22 | Enforced semantic global-class reuse and added the review severity modifiers. |

@@ -49,11 +49,20 @@ export type IssueContext = {
   safeDetail: string;
 };
 
-/** The four fields build.md §F.1 fixes per code. */
-type IssueSpec = Pick<DataIssue, 'scope' | 'severity' | 'suggestedOwner' | 'suggestedAction'>;
+/** Operator-facing copy derived from the same code-level authority as the ledger row. */
+export type IssuePresentation = Readonly<{
+  label: string;
+  diagnosis: string;
+  nextStep: string;
+}>;
+
+/** The fixed fields and presentation copy build.md §F.1.1 assigns per code. */
+type IssueSpec = Pick<DataIssue, 'scope' | 'severity' | 'suggestedOwner'> &
+  IssuePresentation;
 
 /**
- * The locked table, transcribed from delivery.md §3.
+ * The locked table, implemented from build.md §F.1.1.
+ * delivery.md §3 is the execution transcription of the same authority.
  *
  * Module-private on purpose. Exporting it would let another file read a severity
  * and then act on it, which is precisely the authorship this file centralises;
@@ -73,8 +82,10 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'record',
     severity: 'info',
     suggestedOwner: 'People Ops',
-    suggestedAction:
-      'No manager is set. If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.',
+    label: 'No manager assigned',
+    diagnosis: 'No manager is set.',
+    nextStep:
+      'If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.',
   },
 
   /**
@@ -86,8 +97,10 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'record',
     severity: 'low',
     suggestedOwner: 'People Ops',
-    suggestedAction:
-      'Their manager is named but not managed through Remote, so the reporting line cannot be verified. Onboard the manager to Remote to make this link authoritative.',
+    label: 'Manager outside Remote',
+    diagnosis:
+      'Their manager is named but not managed through Remote, so the reporting line cannot be verified.',
+    nextStep: 'Onboard the manager to Remote to make this link authoritative.',
   },
 
   /**
@@ -99,8 +112,10 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'record',
     severity: 'medium',
     suggestedOwner: 'People Ops',
-    suggestedAction:
-      'Their manager record could not be found in this company. Re-select the manager in Remote so the link points to a current employment.',
+    label: 'Manager record not found',
+    diagnosis: 'Their manager record could not be found in this company.',
+    nextStep:
+      'Re-select the manager in Remote so the link points to a current employment.',
   },
 
   /**
@@ -112,8 +127,10 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'record',
     severity: 'high',
     suggestedOwner: 'People Ops',
-    suggestedAction:
-      'This reporting line loops back on itself. Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.',
+    label: 'Reporting loop detected',
+    diagnosis: 'This reporting line loops back on itself.',
+    nextStep:
+      'Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.',
   },
 
   /**
@@ -130,8 +147,9 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'record',
     severity: 'high',
     suggestedOwner: 'Integration owner',
-    suggestedAction:
-      'This record could not be read and is excluded from the chart. Check the field named above against the Remote API contract.',
+    label: 'Employment record unreadable',
+    diagnosis: 'This record could not be read and is excluded from the chart.',
+    nextStep: 'Check the field named above against the Remote API contract.',
   },
 
   /**
@@ -144,10 +162,27 @@ const ISSUE_SPECS: Record<IssueCode, IssueSpec> = {
     scope: 'sync',
     severity: 'high',
     suggestedOwner: 'Integration owner',
-    suggestedAction:
-      'The employment list and the bulk export disagree on how many people exist. Re-run the sync; if it persists, the walk may be incomplete.',
+    label: 'Employment counts disagree',
+    diagnosis: 'The employment list and the bulk export disagree on how many people exist.',
+    nextStep: 'Re-run the sync; if it persists, the walk may be incomplete.',
   },
 };
+
+/**
+ * Read the human label, diagnosis, and remediation-only copy for one issue code.
+ *
+ * Components consume this narrow view instead of re-authoring code-specific
+ * language. Scope, severity, and owner remain on the `DataIssue` instance so
+ * presentation cannot use this function to make domain decisions.
+ */
+export function issuePresentation(code: IssueCode): IssuePresentation {
+  const spec = ISSUE_SPECS[code];
+  return {
+    label: spec.label,
+    diagnosis: spec.diagnosis,
+    nextStep: spec.nextStep,
+  };
+}
 
 /**
  * Construct one ledger finding.
@@ -168,7 +203,7 @@ export function issue(code: IssueCode, ctx: IssueContext): DataIssue {
     scope: spec.scope,
     severity: spec.severity,
     suggestedOwner: spec.suggestedOwner,
-    suggestedAction: spec.suggestedAction,
+    suggestedAction: `${spec.diagnosis} ${spec.nextStep}`,
     employmentId: ctx.employmentId,
     displayName: ctx.displayName,
     safeDetail: ctx.safeDetail,

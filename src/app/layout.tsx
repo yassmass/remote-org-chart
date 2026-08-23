@@ -44,6 +44,9 @@ const DEFAULT_TITLE = getSnapshot('snapshot').company.name;
 export const metadata: Metadata = {
   title: DEFAULT_TITLE,
   robots: 'noindex',
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 /**

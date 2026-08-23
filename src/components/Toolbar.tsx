@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * @fileoverview URL-backed view controls and visible conservation arithmetic.
+ * @fileoverview URL-backed view controls and visible accounting summary.
  *
  * The toolbar owns only request state and presentation. It never assembles or
  * filters a forest, derives department groups, classifies departures, or
@@ -15,7 +15,7 @@
  * remains selected when a filter excludes them, and copying the resulting URL
  * restores the same view.
  *
- * @see planning/build.md F5 — visible conservation claim and arithmetic
+ * @see planning/build.md F5 — visible listed/charted summary and exceptions
  * @see planning/build.md F9 — composable name/title/department filters
  * @see planning/build.md §H.3 — URL state and unfiltered summary semantics
  * @see planning/design.md §9.2 — locked control and disclosure treatment
@@ -50,11 +50,11 @@ export type ToolbarProps = {
   departmentOptions: DepartmentOption[];
   /** Unfiltered, domain-owned explanation of the departed toggle's effect. */
   departureVisibility: DepartureVisibility;
-  /** Number of placed people in the unfiltered snapshot. */
+  /** Number of people charted in the unfiltered snapshot. */
   peopleCount: number;
   /** Number of genuine matches, equal to the page's `matchedIds.size`. */
   matchedCount: number;
-  /** Snapshot walk counters used by the always-visible conservation arithmetic. */
+  /** Snapshot counters used by the always-visible accounting summary. */
   provenance: Provenance;
   /** Sync-scoped findings only; record findings belong in the Review Bar. */
   syncIssues: DataIssue[];
@@ -170,37 +170,13 @@ export function Toolbar({
   return (
     <section
       aria-label="Organization view controls"
+      className="w-full"
       style={{
-        width: '100%',
         padding: 'var(--space-4)',
         border: 'var(--rule) solid var(--divider)',
         borderRadius: 'var(--radius-panel)',
       }}
     >
-      <style>{`
-        .organization-toolbar-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          align-items: end;
-          gap: var(--space-4);
-        }
-
-        @media (min-width: 640px) {
-          .organization-toolbar-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .organization-toolbar-grid {
-            grid-template-columns:
-              minmax(180px, 1.2fr)
-              minmax(160px, 0.9fr)
-              max-content
-              minmax(280px, 1.5fr);
-          }
-        }
-      `}</style>
       <form
         className="organization-toolbar-grid"
         onSubmit={submitSearch}
@@ -224,22 +200,40 @@ export function Toolbar({
 
         <label className="flex min-w-0 flex-col gap-[var(--space-1)]">
           <span className="field-label">Department</span>
-          <select
-            className="field-control w-full"
-            name="dept"
-            onChange={(event) => {
-              replaceToolbarParameter('dept', event.currentTarget.value);
-            }}
-            style={{ height: 'var(--compact-row-height)' }}
-            value={department ?? ''}
-          >
-            <option value="">All departments</option>
-            {departmentOptions.map((option) => (
-              <option key={option.key} value={option.label}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <span className="toolbar-select">
+            <select
+              className="field-control toolbar-select__control w-full"
+              name="dept"
+              onChange={(event) => {
+                replaceToolbarParameter('dept', event.currentTarget.value);
+              }}
+              style={{
+                height: 'var(--compact-row-height)',
+              }}
+              value={department ?? ''}
+            >
+              <option value="">All departments</option>
+              {departmentOptions.map((option) => (
+                <option key={option.key} value={option.label}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              aria-hidden="true"
+              className="toolbar-select__chevron"
+              fill="none"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="m4 6 4 4 4-4"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </span>
         </label>
 
         <button className="sr-only" type="submit">
@@ -249,7 +243,7 @@ export function Toolbar({
         <label className="body-copy flex h-[var(--compact-row-height)] w-fit items-center gap-[var(--space-2)]">
           <input
             checked={hideDeparted}
-            className="size-4 accent-[var(--accent)]"
+            className="compact-checkbox accent-[var(--accent)]"
             name="departed"
             onChange={(event) => {
               replaceToolbarParameter(
@@ -265,10 +259,12 @@ export function Toolbar({
 
         <div className="flex min-h-[var(--compact-row-height)] min-w-0 flex-col items-end justify-center text-right">
           <p className="micro-copy text-[var(--ink-secondary)]">
-            {provenance.recordCount} walked · {provenance.deletedCount} deleted ·{' '}
             {provenance.listTotalCount ?? 'Unavailable'} listed{' '}
-            {provenance.countReconciled ? '✓' : 'warning'} · {peopleCount} placed ·{' '}
-            {provenance.quarantinedCount} quarantined ·{' '}
+            {provenance.countReconciled ? '✓' : 'warning'} · {peopleCount} charted
+            {provenance.quarantinedCount > 0
+              ? ` · ${String(provenance.quarantinedCount)} quarantined`
+              : ''}
+            {' · '}
             {departureVisibilityLabel(departureVisibility, hideDeparted)}
             {hasMatchFilter ? ` · ${String(matchedCount)} matching` : ''}
           </p>

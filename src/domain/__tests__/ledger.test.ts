@@ -28,17 +28,19 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { issue } from '../ledger';
+import { issue, issuePresentation } from '../ledger';
+import type { IssuePresentation } from '../ledger';
 import type { DataIssue, IssueCode } from '../types';
 
-/** The four fields delivery.md §3 fixes per code. */
+/** The domain and presentation fields build.md §F.1.1 fixes per code. */
 type ExpectedSpec = Pick<
   DataIssue,
   'scope' | 'severity' | 'suggestedOwner' | 'suggestedAction'
->;
+> &
+  IssuePresentation;
 
 /**
- * delivery.md §3, transcribed independently of `ledger.ts`.
+ * build.md §F.1.1, transcribed independently of `ledger.ts`.
  *
  * Deliberately a second transcription rather than an import of the module's own
  * table: a test that read `ISSUE_SPECS` would assert the module agrees with
@@ -50,6 +52,10 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     scope: 'record',
     severity: 'info',
     suggestedOwner: 'People Ops',
+    label: 'No manager assigned',
+    diagnosis: 'No manager is set.',
+    nextStep:
+      'If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.',
     suggestedAction:
       'No manager is set. If this person reports to someone, set their manager in Remote; if they are the top of the organization, no action is needed.',
   },
@@ -57,6 +63,10 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     scope: 'record',
     severity: 'low',
     suggestedOwner: 'People Ops',
+    label: 'Manager outside Remote',
+    diagnosis:
+      'Their manager is named but not managed through Remote, so the reporting line cannot be verified.',
+    nextStep: 'Onboard the manager to Remote to make this link authoritative.',
     suggestedAction:
       'Their manager is named but not managed through Remote, so the reporting line cannot be verified. Onboard the manager to Remote to make this link authoritative.',
   },
@@ -66,6 +76,10 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     // `medium`. The union is what the type admits, so it is what is asserted.
     severity: 'medium',
     suggestedOwner: 'People Ops',
+    label: 'Manager record not found',
+    diagnosis: 'Their manager record could not be found in this company.',
+    nextStep:
+      'Re-select the manager in Remote so the link points to a current employment.',
     suggestedAction:
       'Their manager record could not be found in this company. Re-select the manager in Remote so the link points to a current employment.',
   },
@@ -73,6 +87,10 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     scope: 'record',
     severity: 'high',
     suggestedOwner: 'People Ops',
+    label: 'Reporting loop detected',
+    diagnosis: 'This reporting line loops back on itself.',
+    nextStep:
+      'Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.',
     suggestedAction:
       'This reporting line loops back on itself. Review the managers named in the loop and correct the one that is wrong; the chart has placed this person at the top until then.',
   },
@@ -80,6 +98,9 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     scope: 'record',
     severity: 'high',
     suggestedOwner: 'Integration owner',
+    label: 'Employment record unreadable',
+    diagnosis: 'This record could not be read and is excluded from the chart.',
+    nextStep: 'Check the field named above against the Remote API contract.',
     suggestedAction:
       'This record could not be read and is excluded from the chart. Check the field named above against the Remote API contract.',
   },
@@ -87,6 +108,9 @@ const EXPECTED: Record<IssueCode, ExpectedSpec> = {
     scope: 'sync',
     severity: 'high',
     suggestedOwner: 'Integration owner',
+    label: 'Employment counts disagree',
+    diagnosis: 'The employment list and the bulk export disagree on how many people exist.',
+    nextStep: 'Re-run the sync; if it persists, the walk may be incomplete.',
     suggestedAction:
       'The employment list and the bulk export disagree on how many people exist. Re-run the sync; if it persists, the walk may be incomplete.',
   },
@@ -116,6 +140,11 @@ describe('issue · the locked table', () => {
       expect(finding.severity).toBe(expected.severity);
       expect(finding.suggestedOwner).toBe(expected.suggestedOwner);
       expect(finding.suggestedAction).toBe(expected.suggestedAction);
+      expect(issuePresentation(code)).toEqual({
+        label: expected.label,
+        diagnosis: expected.diagnosis,
+        nextStep: expected.nextStep,
+      });
     });
   }
 

@@ -39,6 +39,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { issuePresentation } from '@/domain/ledger';
 import type { DataIssue, OrgNode } from '@/domain/types';
 
 /** One ancestor already resolved by `page.tsx`, ordered from root to parent. */
@@ -70,17 +71,15 @@ function informationalValue(value: string | null): string {
   return value === null || value.trim() === '' ? '—' : value;
 }
 
-/**
- * Render a critical absence as an operator-owned action rather than a blank.
- */
+/** Render a critical absence in the documented `State (Action)` format. */
 function CriticalValue({ value, label }: { value: string | null; label: string }) {
   if (value !== null && value.trim() !== '') {
     return <span className="body-copy bidi-isolate">{value}</span>;
   }
 
   return (
-    <span className="micro-copy text-[var(--alert)]">
-      Missing {label} · contact People Ops
+    <span className="body-copy text-[var(--alert)]">
+      Missing {label} (Contact People Ops)
     </span>
   );
 }
@@ -92,8 +91,7 @@ function DetailField({ label, children }: { label: string; children: React.React
   return (
     <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
       <dt
-        className="field-label"
-        style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+        className="field-label compact-field-label"
       >
         {label}
       </dt>
@@ -107,7 +105,7 @@ function DisclosureChevron() {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180"
+      className="disclosure-chevron"
       fill="none"
       viewBox="0 0 16 16"
     >
@@ -123,7 +121,7 @@ function DisclosureChevron() {
 }
 
 /**
- * Render action-first findings without mixing sync-scoped evidence into a card.
+ * Render operator-first findings without mixing sync-scoped evidence into a card.
  *
  * `page.tsx` has already enforced `scope === 'record'`. The defensive filter
  * here is a presentation boundary guard, not a reclassification: should an
@@ -137,27 +135,44 @@ function RecordFindings({ issues }: { issues: DataIssue[] }) {
   return (
     <section
       className="flex flex-col gap-[var(--space-3)]"
-      aria-labelledby="person-integrity-title"
+      aria-labelledby="person-diagnosis-title"
       style={{
         paddingTop: 'var(--space-4)',
         borderTop: 'var(--rule) solid var(--divider)',
       }}
     >
-      <h3 className="section-title" id="person-integrity-title">
-        Data integrity
+      <h3 className="section-title" id="person-diagnosis-title">
+        Data diagnosis
       </h3>
       <div className="flex flex-col gap-[var(--space-2)]">
-        {recordIssues.map((issue) => (
-          <div
-            className="recessed-row flex-col items-start gap-[var(--space-1)] py-[var(--space-2)]"
-            key={`${issue.code}:${issue.employmentId ?? 'unknown'}:${issue.safeDetail}`}
-          >
-            <p className="body-copy">{issue.suggestedAction}</p>
-            <p className="micro-copy text-[var(--ink-secondary)]">
-              {issue.code} · {issue.safeDetail} · {issue.suggestedOwner}
-            </p>
-          </div>
-        ))}
+        {recordIssues.map((issue) => {
+          const presentation = issuePresentation(issue.code);
+
+          return (
+            <div
+              className="diagnosis-finding recessed-row"
+              key={`${issue.code}:${issue.employmentId ?? 'unknown'}:${issue.safeDetail}`}
+            >
+              <div className="diagnosis-finding__heading diagnosis-finding__title">
+                <p className="body-strong">{presentation.label}</p>
+                <span className="issue-code-badge status-pill">{issue.code}</span>
+              </div>
+              <div className="diagnosis-copy-block">
+                <p className="compact-field-label field-label">Evidence</p>
+                <p className="body-copy">{issue.safeDetail}</p>
+              </div>
+              <div className="diagnosis-finding__next-step">
+                <div className="diagnosis-finding__heading">
+                  <p className="compact-field-label field-label">Next step</p>
+                  <p className="micro-copy text-[var(--ink-secondary)]">
+                    ({issue.suggestedOwner})
+                  </p>
+                </div>
+                <p className="body-copy">{presentation.nextStep}</p>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -242,20 +257,6 @@ export function PersonCard({
       aria-labelledby="person-card-title"
       className="surface-card flex flex-col gap-[var(--space-4)]"
     >
-      <style>{`
-        .direct-report-link {
-          transition:
-            background-color 150ms ease,
-            color 150ms ease,
-            transform 150ms ease;
-        }
-
-        .direct-report-link:hover {
-          background: var(--badge-soft);
-          color: var(--selected);
-          transform: translateX(var(--space-1));
-        }
-      `}</style>
       {mobileDismissEnabled ? (
         <button
           className="outline-action w-fit md:hidden"
@@ -373,38 +374,17 @@ export function PersonCard({
                     {index < chain.length - 1 ? (
                       <span
                         aria-hidden="true"
-                        style={{
-                          position: 'absolute',
-                          top: '14px',
-                          bottom: 0,
-                          left: '7px',
-                          width: 'var(--rule)',
-                          background: 'var(--accent)',
-                        }}
+                        className="reporting-line-rail"
                       />
                     ) : null}
                     <span
                       aria-hidden="true"
-                      style={{
-                        position: 'relative',
-                        zIndex: 1,
-                        width: '15px',
-                        height: '15px',
-                        flex: '0 0 15px',
-                        marginTop: '12px',
-                        border: entry.current ? '0' : '2px solid var(--accent)',
-                        borderRadius: '50%',
-                        background: entry.current ? 'var(--selected)' : 'var(--surface)',
-                      }}
+                      className={`reporting-line-node${entry.current ? ' is-current' : ''}`}
                     />
                     {entry.current ? (
                       <span
                         aria-current="page"
-                        className="recessed-row body-strong bidi-isolate flex-1"
-                        style={{
-                          background: 'var(--selected)',
-                          color: 'var(--selected-ink)',
-                        }}
+                        className="direct-report-link recessed-row body-copy bidi-isolate flex-1"
                       >
                         {entry.displayName}
                       </span>
@@ -438,7 +418,7 @@ export function PersonCard({
               <p className="body-copy text-[var(--ink-secondary)]">No manager</p>
             ) : (
               <Link
-                className="recessed-row body-copy bidi-isolate justify-between gap-[var(--space-3)] no-underline"
+                className="direct-report-link body-copy bidi-isolate flex min-h-[var(--compact-row-height)] items-center justify-between gap-[var(--space-3)] rounded-[var(--radius-row)] px-[var(--space-3)] no-underline"
                 href={personHref(manager.id)}
                 scroll={false}
               >
@@ -456,7 +436,7 @@ export function PersonCard({
             }}
           >
             <summary
-              className="recessed-row cursor-pointer justify-between gap-[var(--space-3)] [&::-webkit-details-marker]:hidden"
+              className="flex min-h-[var(--compact-row-height)] cursor-pointer list-none items-center justify-between gap-[var(--space-3)] [&::-webkit-details-marker]:hidden"
               id="direct-reports-title"
             >
               <span className="section-title">Direct reports</span>
@@ -464,7 +444,7 @@ export function PersonCard({
                 className="flex items-center gap-[var(--space-2)]"
                 style={{ color: 'var(--ink)' }}
               >
-                <span className="body-strong">{selectedNode.directReports}</span>
+                <span className="body-copy">{selectedNode.directReports}</span>
                 <DisclosureChevron />
               </span>
             </summary>

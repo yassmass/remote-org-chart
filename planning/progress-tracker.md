@@ -1,5 +1,7 @@
 # Implementation Progress Tracker
 
+**Project:** **acme-org-chart** (the package name in `package.json`) · sandbox company: **CatarinaFDE Demo2** · real UI confirmed live at **https://remote-org-chart.vercel.app** on 2026-08-22.
+
 > **Purpose: Agent Working Memory.**
 >
 > This file is the live context dump for any AI agent (or developer) actively working on a module. When you pick up a task from [`delivery.md`](./delivery.md), you write your working state here — what's in progress, what's blocked, what decisions were made mid-session, and what the next step is.
@@ -97,7 +99,7 @@ The consequence is what makes it worth writing down: an implementer who reached 
 
 **What the real data exercises**, which decides where each guarantee's evidence comes from:
 
-- 7 null `job_title` and 7 null `department` → the §F.2 critical-null `Missing` marker and the Unassigned bucket are live on real data, not fixture-only.
+- 7 null `job_title` and 7 null `department` → the §F.2 PersonCard `Missing <field> (Contact People Ops)` marker at normal field-value size and the Unassigned bucket are live on real data, not fixture-only.
 - 1 departed record with direct reports → the rule that the "hide departed" toggle never removes someone with a team has a real instance.
 - 0 duplicate full names, 0 null `updated_at`, 0 null `short_id`, 7 null `country`, 15 distinct departments, 0 duplicate employment IDs.
 - Observed vocabularies, all passing through §E.4's `z.string()` rather than a closed enum: `status` ∈ {active 92, archived 7, created 1}; `user_status` ∈ {active 93, inactive 7}; `type` ∈ {global_payroll_employee 93, employee 7}; `lifecycle_stage` ∈ {onboarded 86, offboarded 13, employment_creation 1}. No `deleted` status on this page, so `deletedCount` is 0 so far.
@@ -133,7 +135,7 @@ Two defaults were implicit and are now stated: the departed toggle is off, and d
 
 ### Mid-Session Decisions
 
-- **The count identity is the most serious finding and cannot be closed by reasoning.** `build.md` §G.2 asserts `listTotalCount === recordCount − deletedCount`, unverified against a full walk. On the sampled page `deletedCount` is 0 while 7 records are archived and 13 are offboarded, so if the list endpoint excludes any of those, the formula is wrong by a constant — and `COUNT_MISMATCH` is high severity, is the only sync-scoped code, and puts a warning marker on the toolbar summary, so a wrong formula plants a permanent red marker on the operator's default view and turns the integrity panel into the false-positive generator §E.4 refuses to tolerate for enums. Marked provisional in §E.4 and §G.2, with a four-count measurement, and promoted to a gate that blocks P2a since `reconcile.ts` encodes it. **Do not assume the residual is the archived count** — 7 of 100 will not be the full-walk figure, and the list endpoint may filter on lifecycle stage instead, in which case no status-based identity matches.
+- **The count identity is the most serious finding and cannot be closed by reasoning.** `build.md` §G.2 asserts `listTotalCount === recordCount − deletedCount`, unverified against a full walk. On the sampled page `deletedCount` is 0 while 7 records are archived and 13 are offboarded, so if the list endpoint excludes any of those, the formula is wrong by a constant — and `COUNT_MISMATCH` is high severity, is the only sync-scoped code, and puts a warning marker on the toolbar summary, so a wrong formula plants a permanent red marker on the operator's default view and turns the Data diagnosis panel into the false-positive generator §E.4 refuses to tolerate for enums. Marked provisional in §E.4 and §G.2, with a four-count measurement, and promoted to a gate that blocks P2a since `reconcile.ts` encodes it. **Do not assume the residual is the archived count** — 7 of 100 will not be the full-walk figure, and the list endpoint may filter on lifecycle stage instead, in which case no status-based identity matches.
 - **One of my own findings was downgraded after reading `delivery.md`.** I had claimed `countReconciled` has no defined value when `listTotalCount` is null. `delivery.md` §5 deliberately sets the fixture's `listTotalCount` to disagree so `COUNT_MISMATCH` is observable, and §1 G3 handles an unreadable control total by dropping the code entirely. So the null case is a re-plan condition, not a runtime state. Resolved with a one-clause comment in `Provenance` rather than the three-valued type I had proposed.
 - **`build.md` is now self-contained, with one judgment call to confirm.** All references out of it are gone — the one that existed pointed at the delivery plan's cut order. Six mentions of *the engagement brief* remain, none as a file path. They were kept because §B's `Brief` versus `Added` column is the requirement-provenance taxonomy and removing it would erase which requirements came from the task and which are engineering additions; the brief is also upstream, immutable, and archived, so it cannot contradict the spec the way a downstream document could. **Flag for confirmation** — if the rule is literal, §B needs a replacement taxonomy first.
 - **Stage B is deliberately not done.** Four illustrative count strings in §G.2 and §H.3 still read at the brief's ~42, and their contents depend on which identity the walk measures. Rewriting them now would mean inventing numbers; they are noted as open at the foot of `build.md`.
@@ -471,9 +473,9 @@ The requested scope was implemented file by file and stopped after the third com
 
 | File | Locked behavior implemented |
 |---|---|
-| `src/components/Header.tsx` | Editorial product eyebrow and data-derived company name; viewer-locale absolute capture time plus relative age; exact persistent synthetic-fixture disclosure; invalid timestamp handled as named unavailable state; no refresh action, navigation, logo, diagnostics surface, network I/O, or snapshot selection |
-| `src/components/Toolbar.tsx` | URL-backed search, department selector, and departed toggle; preserves `person`, `source`, and `review`; renders the unfiltered people/depth/conservation summary, match count only for search/department filters, one-click walk/list/delete/place/quarantine arithmetic, and any sync-scoped finding; department options remain domain-supplied and are never re-derived in the component |
-| `src/components/ReviewBar.tsx` | `<details>` state mirrored by `?review=open`; source selector; complete semantic issue table grouped by scope then code; cursor, count, referential, and conservation evidence; full provenance counters and content hash; bounded redacted sync-log excerpt; zero-credential verification pointer; synthetic source explicitly reports that no Remote walk occurred |
+| `src/components/Header.tsx` | Editorial product eyebrow and data-derived company name; viewer-locale absolute capture time plus relative age; invalid timestamp handled as named unavailable state; no synthetic-fixture banner, refresh action, navigation, diagnostics surface, network I/O, or snapshot selection |
+| `src/components/Toolbar.tsx` | URL-backed search, department selector, and departed toggle; preserves `person`, `source`, and `review`; begins its unfiltered accounting line with `listed · charted`, appends quarantined only when nonzero, then departed state and active matching count; walked and deleted remain in ReviewBar; department options remain domain-supplied and are never re-derived in the component |
+| `src/components/ReviewBar.tsx` | `<details>` state mirrored by `?review=open`; source selector; **Findings** grouped by scope and code, with human label/code badge/diagnosis/owner/color-coded severity/next step once per group and semantic tables headed **Affected records** containing record identity plus variable evidence; cursor, count, referential, and conservation evidence; full provenance counters and content hash; bounded redacted sync-log excerpt; zero-credential verification pointer |
 
 The three components use only the visual primitives and exact tokens already locked by `design.md` and `globals.css`: Remote's Bossa/Inter roles, recessed controls, white review surface, semantic review table, status pills, warning palette, thin chevrons, divider rules, and focus treatment. No new palette, card system, shadow, avatar, route, API call, or domain rule was introduced.
 
@@ -489,7 +491,7 @@ The three components use only the visual primitives and exact tokens already loc
 
 **P4a and P4b are intentionally not marked complete.** This batch did not create or modify `Tree.tsx`, `PersonCard.tsx`, `page.tsx`, `layout.tsx`, `next.config.ts`, or any other application file. The current route is still the scaffold placeholder, so the new components are production-compiled but not yet composed into a rendered page.
 
-Consequently, no browser or visual-acceptance claim is made in this session. `design.md` §15 captures, URL round-trip verification, keyboard tree traversal, fixture title/disclosure verification, and deployed-page validation become meaningful only after the remaining P4 components and page composition exist.
+Consequently, no browser or visual-acceptance claim is made in this session. `design.md` §15 captures, URL round-trip verification, keyboard tree traversal, fixture identity/title verification, and deployed-page validation become meaningful only after the remaining P4 components and page composition exist.
 
 ### Next Step
 
@@ -513,9 +515,9 @@ Every created or completed application file follows the locked domain, URL, acce
 
 | File | Locked behavior completed |
 |---|---|
-| `src/components/Tree.tsx` | WAI-ARIA tree/treeitem/group semantics; one roving tab stop; Arrow Left/Right/Up/Down, Home, End, Enter, and Space behavior; depth-2 reset; expand/collapse controls; canonical order; 15-sibling cap; selected, match, context, duplicate-name, departed, synthetic, and null-field states; URL-backed person selection preserving the other five dimensions |
-| `src/components/PersonCard.tsx` | Preselected-node rendering only; person details with critical versus informational null treatment; root-to-person reporting line; manager and capped direct-report links; outside-filter notice and clear-filter link; deliberately reduced external-manager/unresolved-manager variants; mobile back action without inventing domain data |
-| `src/components/ReviewBar.tsx` | Complete source, reconciliation, provenance, issue-ledger, redacted-log, and no-token-verification evidence; exact `?review=open` and `?source=` synchronization; real-source empty-log state no longer claims that no Remote walk occurred |
+| `src/components/Tree.tsx` | WAI-ARIA tree/treeitem/group semantics; one roving tab stop; Arrow Left/Right/Up/Down, Home, End, Enter, and Space behavior; **Restore default view** control for the depth-2 policy; expand/collapse controls; canonical order; 15-sibling cap; selected, match, context, duplicate-name, departed, synthetic, and null-field states; URL-backed person selection preserving the other five dimensions |
+| `src/components/PersonCard.tsx` | Preselected-node rendering only; person details with critical versus informational null treatment; root-to-person reporting line; manager and capped direct-report links; record findings rendered as label/code badge → evidence → next step → owner, with diagnosis and severity omitted; outside-filter notice and clear-filter link; deliberately reduced external-manager/unresolved-manager variants; mobile back action without inventing domain data |
+| `src/components/ReviewBar.tsx` | Complete source, reconciliation, provenance, grouped findings, redacted-log, and no-token-verification evidence; fixed code-level guidance including diagnosis and color-coded severity is shown once per group while affected records and variable evidence remain tabular under **Affected records**; exact `?review=open` and `?source=` synchronization; real-source empty-log state no longer claims that no Remote walk occurred |
 | `src/app/page.tsx` | Server-owned selection of committed snapshot or generated fixture; all six URL dimensions; forest assembly and filtering; principal-root default; preselected card lookup outside filtered results; locale-aware header; bounded hash-matched sync-log excerpt; desktop editorial composition; explicit-person mobile overlay; exact fixture metadata |
 | `next.config.ts` | Global `X-Robots-Tag: noindex` response header while retaining the locked compiler configuration |
 
@@ -529,7 +531,7 @@ The prior Session 8 components — `Header.tsx`, `Toolbar.tsx`, and `ReviewBar.t
 - The page title resolves to **CatarinaFDE Demo2** for the real snapshot and the exact synthetic warning title for the fixture.
 - The production response returns `X-Robots-Tag: noindex`.
 - The requester confirmed the default Turbopack production build in their terminal. An independent `next build --webpack` also compiled, typechecked, generated pages, and collected traces successfully.
-- Per the requester's closure instruction, the phase is marked complete while they retain the final public Vercel refresh check; the CLI reported no active Vercel login in this session.
+- The deferred public Vercel refresh is closed. The Session 9 CLI reported no active login, and the requester subsequently confirmed the completed real UI live on 2026-08-22.
 
 ### P4b Gate — Passed
 
@@ -541,7 +543,7 @@ The original and fresh tab were identical: query **Aiden**, department **IT**, d
 
 Additional browser acceptance passed:
 
-- `?source=fixture&review=open` shows the amber synthetic disclosure, **Edge Case Fixture**, `COUNT_MISMATCH`, unresolved records, and the exact synthetic page title.
+- `?source=fixture&review=open` shows **Edge Case Fixture**, the fixture source selection, `COUNT_MISMATCH`, unresolved records, and the exact synthetic page title without a redundant Header banner.
 - `external:sofia reyes` renders the reduced **Outside Remote** card with attached reports and `MGR_EXTERNAL`, without person-only job-title or country fields.
 - At 360×800, an explicit person opens a 360px-wide fixed detail overlay with **Back to chart** visible.
 - Bossa and Inter both resolve from the local font setup; no external stylesheet is loaded.
@@ -562,7 +564,7 @@ This handoff was superseded on 2026-08-22 by Session 10, which re-closed P4 afte
 
 ---
 
-## Current Working Session — Session 10 · P4 toolbar correction complete
+## Current Working Session — Session 10 · P4 toolbar correction and tree hierarchy refinement
 
 **Module:** P4a toolbar interaction repair and departure-visibility disclosure
 **Task Ref:** `build.md` 1.12 §H.3 · `delivery.md` 1.16 §2 Application · §4 P4a · §7 checks 6a–6b
@@ -589,7 +591,7 @@ Session 9 opened a URL already containing all six §H.3 parameters and proved th
 
 `src/app/page.tsx` passes those values directly to Toolbar and keys Tree local state by snapshot identity plus `q`, `dept`, and `departed`. This closes a browser-found reset defect: the full forest could return after clearing a narrow query while retaining the narrow tree's expansion set. The filtered-view key now restores the locked depth-two state; `person` and `review` changes do not reset it.
 
-`src/components/Toolbar.tsx` renders conservation arithmetic, the exact departure state, and conditional `N matching` on one responsive line, with ` · ` between every meaning. The zero-data branch remains exactly `0 departed`; no domain arithmetic changed.
+`src/components/Toolbar.tsx` renders `N listed ✓ · N charted`, conditionally appends nonzero quarantined, then the exact departure state and conditional `N matching` on one responsive line, with ` · ` between every meaning. Walked and deleted remain in ReviewBar. The zero-data branch remains exactly `0 departed`; no domain arithmetic changed.
 
 Focused browser evidence against the running real snapshot:
 
@@ -616,7 +618,7 @@ The control worked according to the domain rule but previously did not explain w
 - `N departed hidden · M retained with reports` when it is on;
 - real snapshot: `45 departed shown` / `41 departed hidden · 4 retained with reports`.
 
-The unfiltered conservation arithmetic begins the same responsive line: `191 walked · 0 deleted · 191 listed ✓ · 191 placed · 0 quarantined · 45 departed shown`, with ` · N matching` appended only for an active query or department. The separator unifies presentation without merging the meanings or their data ownership.
+The unfiltered accounting line is `191 listed ✓ · 191 charted · 45 departed shown`. `N quarantined` is inserted after charted only when nonzero, and `N matching` is appended only for an active query or department. Walked and deleted remain in ReviewBar. The separator unifies presentation without merging the meanings or their data ownership.
 
 ### Verification state
 
@@ -629,7 +631,30 @@ The unfiltered conservation arithmetic begins the same responsive line: `191 wal
 
 ### Review handoff
 
-P4 is complete. No additional implementation, documentation, build, deployment, or component scope is authorized before requester review.
+P4 is complete. On 2026-08-22 the requester approved a bounded hierarchy-clarity refinement within this same working session. The default disclosure policy is now root-open: each root's immediate reports are visible, while every report's own branch starts collapsed; **Restore default view** applies the same policy.
+
+#### Authorized tree scope and implementation
+
+The requester approved five wireframe changes only. `Tree.tsx` and its global visual primitives now implement exactly those changes:
+
+- the maroon surface is reserved for the selected person; expansion alone remains a compact neutral 81px row;
+- nested sibling groups share a visible rail and every child has an explicit elbow into its row;
+- the selected person's visible ancestors receive restrained rose structural emphasis;
+- the selected person's visible immediate reports receive the same bounded emphasis;
+- the existing vertical outline tree, person card, URL state, filters, keyboard model, sibling cap, depth cap, synthetic-manager semantics, and domain data remain unchanged.
+
+No pan/zoom canvas, alternate visualization, domain field, URL parameter, design-token family, or unrelated component was introduced. When the selected person is outside an active filter, the tree does not fabricate an absent path; the existing PersonCard notice remains the owner of that state.
+
+#### Tree-refinement verification
+
+- `pnpm typecheck`: passed.
+- `pnpm lint`: passed.
+- `pnpm test`: fixture bake unchanged; **199/199 tests passed across 13 files**.
+- Production build: started inadvertently, immediately stopped at the requester's instruction, and **not claimed**.
+- Browser acceptance: deliberately left to the requester. No visual-pass claim is recorded before their inspection.
+- The requester's existing development server at `http://localhost:3000` remains untouched.
+
+Await the requester's visual inspection. Any follow-up must remain inside the approved tree refinements unless the requester explicitly expands scope.
 
 ---
 
@@ -637,9 +662,14 @@ P4 is complete. No additional implementation, documentation, build, deployment, 
 
 | Date | Task | Notes |
 | :--- | :--- | :--- |
+| 2026-08-22 | **Diagnosis surface simplification and severity styling** (`build.md` 1.17 · `delivery.md` 1.21 · `design.md` 1.2) | ✅ PersonCard now retains label/code badge, evidence, next step, and owner while omitting diagnosis and severity. ReviewBar retains both, renames the table heading to **Affected records**, and maps info/low/medium/high severity pills to existing gray/yellow/orange/red semantic tokens through global classes. |
+| 2026-08-22 | **Diagnosis provenance and consequence restoration** (`build.md` 1.16 · `delivery.md` 1.20) | ✅ The exact six label/diagnosis/next-step mappings now originate in authoritative `build.md` §F.1.1 and are transcribed by delivery before code consumes them. `issuePresentation` includes diagnosis; both UI surfaces render it before evidence. `RECORD_INVALID` locally states that the record is excluded from the chart, and `MGR_EXTERNAL` states that its line cannot be verified. |
+| 2026-08-22 | **Diagnosis presentation refactor** (`build.md` 1.15 · `delivery.md` 1.19) | ✅ Three phases complete. `ledger.ts` centrally exposes human labels and remediation-only next steps while preserving stored audit actions. PersonCard is evidence-first with code badges. ReviewBar **Findings** renders fixed code-level guidance once, promotes shared evidence, and restricts tables to affected records plus variable evidence. Documentation is synchronized across all three planning files. |
+| 2026-08-22 | **Final Toolbar and Header contract synchronization** (`build.md` 1.14 · `delivery.md` 1.18) | ✅ Toolbar now begins `listed · charted`, appends quarantined only when nonzero, and retains departed plus active matching state; walked/deleted remain in ReviewBar. The redundant synthetic-fixture banner was removed from Header. Implementation and all three planning documents now agree. |
+| 2026-08-22 | **Documentation terminology and deployment confirmation** | ✅ Project **acme-org-chart** is distinguished from sandbox company **CatarinaFDE Demo2**; **Data diagnosis**, **Restore default view**, and PersonCard's `Missing <field> (Contact People Ops)` value treatment now match the delivered UI across all three planning documents; the completed real UI is requester-confirmed live on Vercel. |
 | 2026-08-22 | **P4 complete after toolbar interaction correction** (`build.md` 1.12 · `delivery.md` 1.16) | ✅ P4a and P4b closed. `filterForest.departureVisibility`, the zero/leaf/manager/chain/real assertions, race-safe controlled live search, latest-intended URL composition, filtered-tree reset, and one responsive ` · `-separated conservation/departure/match line are implemented with comprehensive JSDoc. Browser interaction checks pass; fixture bake unchanged; **199 tests**, typecheck, and lint pass. No CSS was reverted and no production build was run. Paused for requester review. |
 | 2026-08-22 | **P4a reopened after toolbar interaction audit; contract re-locked** (`build.md` 1.10 · `delivery.md` 1.14) | ↻ Live search, empty-input URL reset, and latest-intended URL composition were implemented in `Toolbar.tsx`; focused browser checks passed, as did lint, typecheck, and **196 tests**. The former paste-only URL gate was recorded as insufficient for control behavior. Real data has 45 departed people: 41 hideable and 4 retained managers. This reopening was superseded by the completed P4 row above. |
-| 2026-08-22 | **P4a/P4b complete; P5 closed unused** (`delivery.md` 1.13 §4) | ✅ Tree, PersonCard, ReviewBar, page composition, source-aware metadata, and the global noindex header are production-complete with comprehensive JSDoc. Deepest-leaf keyboard traversal and all-six-parameter fresh-tab equivalence passed; fixture, reduced synthetic card, 360px overlay, typography, geometry, and console gates passed. Fixture bake unchanged; **196 tests**, typecheck, lint, requester-confirmed Turbopack build, and independent webpack build all pass. Public Vercel refresh check retained by requester after the CLI reported no active login. |
+| 2026-08-22 | **P4a/P4b complete; P5 closed unused** (`delivery.md` 1.13 §4) | ✅ Tree, PersonCard, ReviewBar, page composition, source-aware metadata, and the global noindex header are production-complete with comprehensive JSDoc. Deepest-leaf keyboard traversal and all-six-parameter fresh-tab equivalence passed; fixture, reduced synthetic card, 360px overlay, typography, geometry, and console gates passed. Fixture bake unchanged; **196 tests**, typecheck, lint, requester-confirmed Turbopack build, and independent webpack build all pass. The CLI lacked an active login in this session; the requester subsequently confirmed the completed real UI live on Vercel on 2026-08-22. |
 | 2026-08-22 | **P4 bounded component batch — Header, Toolbar, Review Bar** | ✅ Exact requested three-file scope complete with comprehensive JSDoc. Fixture bake unchanged; **196 tests**, typecheck, lint, and production build all pass. P4a/P4b remain open because Tree, PersonCard, page composition, browser verification, and deployment were not part of this batch. Paused for user review. |
 | 2026-08-22 | **P3 re-locked after falsifiability audit** (`delivery.md` §4) | ✅ `fixtures/edge-cases.json` (49 elements), bake, generated snapshot, every domain suite, both P2a baked-fixture extensions, and all five `lib/` suites are present. `pnpm test` bakes first, reports the content hash unchanged, and passes **196 tests across 13 files**; `pnpm typecheck` and `pnpm lint` are clean. Raw reversal is byte-identical end to end; canonical object keys and included-data hash sensitivity are pinned; both pre-pass fields and all four open strings have independent cases; 201 is accepted by the production classifier; the baked forest shuffle compares every child list; and synthetic report ownership is exact. `build.md` 1.9 and `delivery.md` 1.12 supersede the initial 180-test lock. |
 | 2026-08-22 | **P2a complete — domain assembly half + test runner** (`delivery.md` §4) | ✅ `build-forest.ts`, `filter.ts`, `vitest.config.mts`, and both domain suites. **30 tests green**, `typecheck` and `lint` clean with the `domain/` boundary rule active. Definition of done asserted: 42 roots / 191 nodes / `maxDepth` 4 from the real snapshot, `principalRootId` naming a person root with 112 descendants. Vitest sealed with its tests rather than empty, satisfying Session 4's objection; `bake:fixture` correctly left to P3, its input being a P3 deliverable. Two specification defects found (G-12 unresolved-placeholder display name, G-13 the `?dept=` encoding), neither originated in code; three more were raised on review (G-14 department identity, G-15 the fold's three implementations, G-16 the unowned department menu). All three landed in `build.md` 1.6 / `delivery.md` 1.6 — **G-12 against my proposed resolution**, since one placeholder exists per distinct missing manager id and a constant label would make them indistinguishable. Code amended to match across both rounds; `domain/fold.ts` extracted as the fold's single owner and `departmentOptions()` added, unblocking P4a. Gate re-run after the manifest moved: 46 tests green. |

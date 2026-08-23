@@ -22,7 +22,9 @@
  */
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import type { SyntheticEvent } from 'react';
+import { issuePresentation } from '@/domain/ledger';
 import type { DataIssue, IssueCode, OrgSnapshot } from '@/domain/types';
 
 /** The two URL values authorized by build.md §D.5. */
@@ -120,7 +122,7 @@ function DisclosureChevron() {
   return (
     <svg
       aria-hidden="true"
-      className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180"
+      className="disclosure-chevron"
       fill="none"
       viewBox="0 0 16 16"
     >
@@ -146,67 +148,116 @@ function resultLabel(value: boolean): 'Passed' | 'Warning' {
 }
 
 /**
- * Render the complete, actionable issue ledger as a real table.
+ * Return a detail shared by every issue in a code group, or null when evidence varies.
+ */
+function sharedIssueDetail(issues: DataIssue[]): string | null {
+  const firstDetail = issues[0]?.safeDetail;
+  if (firstDetail === undefined) return null;
+  return issues.every((issue) => issue.safeDetail === firstDetail) ? firstDetail : null;
+}
+
+/**
+ * Render code-level guidance once and record-level evidence in semantic tables.
  *
- * Each issue is exactly one body row. Scope and code grouping rows are table
- * headers, not replacements for fields: the code is repeated in secondary text
- * with each affected record so a copied row remains intelligible on its own.
+ * Owner, severity, label, and next step are fixed per code, so repeating them
+ * in every row would obscure the only values that vary: affected record and
+ * evidence. Evidence shared by an entire group is likewise promoted once.
  */
 function IssueLedger({ issues }: { issues: DataIssue[] }) {
   const groups = groupIssues(issues);
 
   if (groups.length === 0) {
-    return <p className="body-copy">No data-integrity findings are recorded.</p>;
+    return <p className="body-copy">No findings are recorded.</p>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="review-table">
-        <caption className="sr-only">
-          Data-integrity findings grouped by scope and issue code
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Finding</th>
-            <th scope="col">Action</th>
-            <th scope="col">Detail</th>
-            <th scope="col">Owner</th>
-            <th scope="col">Severity</th>
-          </tr>
-        </thead>
-        {groups.map((group) => (
-          <tbody key={`${group.scope}:${group.code}`}>
-            <tr>
-              <th className="field-label" colSpan={5} scope="colgroup">
-                {group.scope === 'record' ? 'Record findings' : 'Sync findings'} · {group.code} ·{' '}
-                {group.issues.length}
-              </th>
-            </tr>
-            {group.issues.map((issue) => (
-              <tr key={`${issue.code}:${issue.employmentId ?? 'unknown'}:${issue.safeDetail}`}>
-                <td>
-                  <p className="body-strong bidi-isolate">
-                    {issue.displayName ?? 'Record unavailable'}
-                  </p>
-                  <p className="micro-copy text-[var(--ink-secondary)]">{issue.code}</p>
-                </td>
-                <td>
-                  <p className="body-copy">{issue.suggestedAction}</p>
-                </td>
-                <td>
-                  <p className="micro-copy">{issue.safeDetail}</p>
-                </td>
-                <td>
-                  <p className="micro-copy">{issue.suggestedOwner}</p>
-                </td>
-                <td>
-                  <span className="status-pill">{issue.severity}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        ))}
-      </table>
+    <div className="diagnosis-groups">
+      {groups.map((group) => {
+        const representative = group.issues[0];
+        if (representative === undefined) return null;
+
+        const presentation = issuePresentation(group.code);
+        const sharedDetail = sharedIssueDetail(group.issues);
+        const scopeLabel = group.scope === 'record' ? 'Record findings' : 'Sync findings';
+
+        return (
+          <section className="diagnosis-group" key={`${group.scope}:${group.code}`}>
+            <header className="diagnosis-group__header">
+              <div className="diagnosis-group__identity">
+                <div className="diagnosis-group__title">
+                  <h3 className="body-strong">{presentation.label}</h3>
+                  <span className="issue-code-badge status-pill">{group.code}</span>
+                </div>
+                <p className="micro-copy text-[var(--ink-secondary)]">
+                  {scopeLabel} · {group.issues.length}{' '}
+                  {group.issues.length === 1 ? 'finding' : 'findings'}
+                </p>
+              </div>
+              <div className="diagnosis-group__metadata">
+                <span className="micro-copy text-[var(--ink-secondary)]">
+                  {representative.suggestedOwner}
+                </span>
+                <span
+                  className={`status-pill severity-pill--${representative.severity}`}
+                >
+                  {representative.severity}
+                </span>
+              </div>
+            </header>
+
+            <div className="diagnosis-group__guidance">
+              <div className="diagnosis-copy-block">
+                <p className="compact-field-label field-label">Diagnosis</p>
+                <p className="body-copy">{presentation.diagnosis}</p>
+              </div>
+              {sharedDetail === null ? null : (
+                <div className="diagnosis-copy-block">
+                  <p className="compact-field-label field-label">Evidence</p>
+                  <p className="body-copy">{sharedDetail}</p>
+                </div>
+              )}
+              <div className="diagnosis-copy-block">
+                <p className="compact-field-label field-label">Next step</p>
+                <p className="body-copy">{presentation.nextStep}</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="review-table">
+                <caption className="sr-only">
+                  {presentation.label}: {group.issues.length}{' '}
+                  {group.issues.length === 1 ? 'finding' : 'findings'}
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Affected records</th>
+                    {sharedDetail === null ? <th scope="col">Evidence</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.issues.map((issue) => (
+                    <tr
+                      key={`${issue.code}:${issue.employmentId ?? 'unknown'}:${issue.safeDetail}`}
+                    >
+                      <td>
+                        <p className="review-ledger-value body-strong bidi-isolate">
+                          {issue.displayName ??
+                            (issue.scope === 'sync' ? 'Organization sync' : 'Record unavailable')}
+                        </p>
+                      </td>
+                      {sharedDetail === null ? (
+                        <td>
+                          <p className="review-ledger-value body-copy">{issue.safeDetail}</p>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -232,6 +283,7 @@ export function ReviewBar({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const { provenance } = snapshot;
   const issueGroups = groupIssues(snapshot.issues);
   const danglingCount = snapshot.issues.filter((issue) => issue.code === 'MGR_DANGLING').length;
@@ -263,11 +315,31 @@ export function ReviewBar({
     replaceReviewParameter('review', nextOpen ? 'open' : null);
   }
 
+  /** Close the open diagnosis disclosure when a pointer lands outside it. */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function dismissOutside(event: PointerEvent) {
+      const details = detailsRef.current;
+      if (details === null || !(event.target instanceof Node) || details.contains(event.target)) {
+        return;
+      }
+
+      details.open = false;
+    }
+
+    document.addEventListener('pointerdown', dismissOutside);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside);
+    };
+  }, [isOpen]);
+
   return (
     <details
       className="group w-full"
       onToggle={toggleReview}
       open={isOpen}
+      ref={detailsRef}
       style={{
         position: 'relative',
         width: '100%',
@@ -276,26 +348,26 @@ export function ReviewBar({
       }}
     >
       <summary className="flex min-h-[var(--row-height)] cursor-pointer list-none items-center justify-between gap-[var(--space-3)] px-[var(--space-5)] [&::-webkit-details-marker]:hidden">
-        <span className="flex min-w-0 flex-wrap items-center gap-[var(--space-2)]">
-          <span className="section-title">Data integrity</span>
+        <span className="review-summary-copy">
+          <span className="section-title">Data diagnosis</span>
           <span className="micro-copy text-[var(--ink-secondary)]">
-            {snapshot.issues.length} findings · {issueGroups.length} groups
+            {snapshot.issues.length} {snapshot.issues.length === 1 ? 'finding' : 'findings'} ·{' '}
+            {issueGroups.length} {issueGroups.length === 1 ? 'group' : 'groups'}
           </span>
         </span>
         <DisclosureChevron />
       </summary>
 
       <div
-        className="flex flex-col gap-[var(--space-5)]"
+        className="diagnosis-panel-content flex flex-col gap-[var(--space-5)]"
         style={{
           position: 'absolute',
           right: 0,
           bottom: 'calc(100% + var(--space-2))',
           left: 0,
-          zIndex: 30,
+          zIndex: 'var(--z-diagnosis-panel)',
           width: '100%',
           maxWidth: 'none',
-          maxHeight: '40vh',
           overflowY: 'auto',
           padding: 'var(--space-5)',
           border: 'var(--rule) solid var(--divider)',
@@ -311,8 +383,7 @@ export function ReviewBar({
           </h2>
           <label className="flex flex-col gap-[var(--space-1)]">
             <span
-              className="field-label"
-              style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+              className="field-label compact-field-label"
             >
               Dataset
             </span>
@@ -389,8 +460,7 @@ export function ReviewBar({
           <dl className="grid grid-cols-1 gap-[var(--space-2)] sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Source
               </dt>
@@ -398,8 +468,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Environment
               </dt>
@@ -407,8 +476,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Captured at
               </dt>
@@ -416,8 +484,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Company ID
               </dt>
@@ -425,8 +492,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 API calls
               </dt>
@@ -434,8 +500,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)]">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Bulk pages
               </dt>
@@ -443,8 +508,7 @@ export function ReviewBar({
             </div>
             <div className="flex min-w-0 flex-col gap-[var(--space-1)] sm:col-span-2">
               <dt
-                className="field-label"
-                style={{ color: 'var(--ink-tertiary)', fontSize: '10px', lineHeight: 1.4 }}
+                className="field-label compact-field-label"
               >
                 Content hash
               </dt>
@@ -459,7 +523,7 @@ export function ReviewBar({
           style={DIVIDED_REVIEW_SECTION_STYLE}
         >
           <h2 id="ledger-title" className="section-title">
-            Integrity ledger
+            Findings
           </h2>
           <IssueLedger issues={snapshot.issues} />
         </section>

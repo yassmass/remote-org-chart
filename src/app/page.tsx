@@ -258,23 +258,6 @@ function recordIssuesFor(node: OrgNode | null, snapshot: OrgSnapshot): DataIssue
 }
 
 /**
- * Identify only the people who need the §F.2 short-id disambiguator.
- *
- * Employment id remains identity; this count is display-only and uses the full
- * name exactly as received. Showing every short id would turn an exceptional
- * disambiguator into permanent chrome and break the locked 81px tree row.
- */
-function duplicateNameIds(snapshot: OrgSnapshot): string[] {
-  const counts = new Map<string, number>();
-  for (const person of snapshot.people) {
-    counts.set(person.name, (counts.get(person.name) ?? 0) + 1);
-  }
-  return snapshot.people
-    .filter((person) => (counts.get(person.name) ?? 0) > 1)
-    .map((person) => person.employmentId);
-}
-
-/**
  * Use the viewer's leading Accept-Language preference for capture formatting.
  *
  * `Header` validates support and falls back to English, so this boundary only
@@ -339,28 +322,13 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
 
   return (
     <main className="design-frame" aria-labelledby="org-chart-title">
-      <style>{`
-        @media (min-width: 1024px) {
-          .editorial-layout {
-            grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) !important;
-            column-gap: var(--space-6) !important;
-          }
-
-          .detail-grid {
-            min-width: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-          }
-        }
-      `}</style>
       <Header
         capturedAt={snapshot.provenance.capturedAt}
         companyName={snapshot.company.name}
         locale={locale}
-        source={snapshot.provenance.source}
       />
 
-      <div style={{ marginTop: 'var(--space-4)' }}>
+      <div style={{ marginTop: 'var(--component-gap)' }}>
         <Toolbar
           department={department}
           departmentOptions={departmentOptions(snapshot.people)}
@@ -374,10 +342,9 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
         />
       </div>
 
-      <div className="editorial-layout" style={{ marginTop: 'var(--space-6)' }}>
+      <div className="editorial-layout" style={{ marginTop: 'var(--component-gap)' }}>
         <section className="primary-region">
           <Tree
-            duplicateNameIds={duplicateNameIds(snapshot)}
             hasActiveViewFilter={hasActiveViewFilter}
             hasMatchFilter={hasMatchFilter}
             key={treeViewKey(
@@ -395,7 +362,7 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
 
         <aside
           aria-label="Selected organization member"
-          className={`detail-grid${explicitPersonId === null ? '' : ' max-md:fixed max-md:inset-0 max-md:z-50 max-md:m-0 max-md:max-w-none max-md:overflow-y-auto max-md:bg-[var(--canvas)] max-md:p-[var(--space-5)]'}`}
+          className={`detail-grid${explicitPersonId === null ? '' : ' detail-grid--mobile-overlay'}`}
           style={{ alignSelf: 'stretch', minWidth: 0 }}
         >
           <div className="detail-card-stack">
@@ -411,7 +378,7 @@ export default async function OrgChartPage({ searchParams }: OrgChartPageProps) 
         </aside>
       </div>
 
-      <section style={{ marginTop: 'var(--space-6)' }} aria-label="Data review">
+      <section style={{ marginTop: 'var(--component-gap)' }} aria-label="Data diagnosis">
         <ReviewBar
           isOpen={reviewOpen}
           selectedSource={source}

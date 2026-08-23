@@ -22,17 +22,18 @@
  * Expansion is intentionally local UI state rather than a seventh URL
  * parameter. The URL contract in build.md §H.3 names exactly six dimensions,
  * and expansion is governed by three fixed controls: expand all, collapse all,
- * and reset to depth two. Every sibling list, including the forest roots, is
+ * and restore the root-open default. Every sibling list, including the forest roots, is
  * capped at fifteen until its explicit “show N more” control is used.
  *
  * ## Visual contract
  *
- * design.md §9.3 maps unselected nodes to flat 81px hairline rows and selected
- * or expanded nodes to Remote's maroon panel. Connector rails use the verified
- * grid-line token; synthetic parent rails use the authorized dashed accent
- * treatment. Indentation stops accumulating after eight levels while the real
- * depth remains visible, satisfying build.md §F.2 without inventing a second
- * mobile or deep-tree design.
+ * design.md §9.3 maps every unselected node, including expanded branches, to a
+ * compact 81px row and reserves Remote's maroon panel for the selected person.
+ * Shared rails and child elbows make sibling ownership explicit; the selected
+ * reporting path and immediate reports reuse the authorized rose emphasis.
+ * Synthetic parent rails remain dashed. Indentation stops accumulating after
+ * eight levels while the real depth remains visible, satisfying build.md §F.2
+ * without inventing a second mobile or deep-tree design.
  *
  * @see planning/build.md F3 — hierarchical tree and node content
  * @see planning/build.md F9 — matches versus retained context ancestors
@@ -70,8 +71,6 @@ export type TreeProps = {
   selectedId: string | null;
   /** IDs returned by `filterForest().matchedIds`, serialized for the client boundary. */
   matchedIds: string[];
-  /** Person ids whose full names collide and therefore require short-id disambiguation. */
-  duplicateNameIds: string[];
   /** Whether search or department matching is active, even when it has zero matches. */
   hasMatchFilter: boolean;
   /** Whether any narrowing control, including hide-departed, is active. */
@@ -103,15 +102,16 @@ function collectNodes(roots: OrgNode[]): OrgNode[] {
 }
 
 /**
- * Return the branch ids expanded by the locked depth-two default.
+ * Return the branch ids expanded by the root-open default.
  *
- * A node at depth 0 or 1 must be open for nodes through depth 2 to be visible.
- * Leaves are excluded because `aria-expanded` is not meaningful on them.
+ * Root branches open so their immediate reports are visible; every report's
+ * own branch starts collapsed. Leaves are excluded because `aria-expanded`
+ * is not meaningful on them.
  */
-function depthTwoExpansion(nodes: OrgNode[]): Set<string> {
+function defaultExpansion(nodes: OrgNode[]): Set<string> {
   return new Set(
     nodes
-      .filter((node) => node.children.length > 0 && node.depth < 2)
+      .filter((node) => node.children.length > 0 && node.depth === 0)
       .map((node) => node.id),
   );
 }
@@ -125,7 +125,7 @@ function depthTwoExpansion(nodes: OrgNode[]): Set<string> {
  */
 function HierarchyMarker({ synthetic }: { synthetic: boolean }) {
   return (
-    <svg aria-hidden="true" className="size-8" fill="none" viewBox="0 0 32 32">
+    <svg aria-hidden="true" className="hierarchy-marker" fill="none" viewBox="0 0 32 32">
       <circle cx="16" cy="11" r="4" stroke="currentColor" strokeWidth="1.5" />
       <path
         d="M16 15v6m-7 0h14M9 21v4m14-4v4"
@@ -146,11 +146,9 @@ function BranchChevron({ expanded }: { expanded: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className={`size-4 transition-transform duration-200${expanded ? ' rotate-180' : ''}`}
+      className={`disclosure-chevron${expanded ? ' is-expanded' : ''}`}
       fill="none"
-      height="16"
       viewBox="0 0 24 24"
-      width="16"
     >
       <path
         d="m7 9 5 5 5-5"
@@ -166,14 +164,12 @@ function BranchChevron({ expanded }: { expanded: boolean }) {
 /**
  * Format a critical field without hiding an operator-owned absence.
  *
- * Job title and department are the two critical nulls in build.md §F.2. Their
- * missing state names People Ops; informational nulls are handled in the
- * person card and render as an em dash instead.
+ * Job title and department are the two critical nulls in build.md §F.2. The
+ * tree names the absent value without duplicating the actionable owner copy
+ * carried by PersonCard.
  */
 function criticalValue(value: string | null, label: 'Job title' | 'Department'): string {
-  return value === null || value.trim() === ''
-    ? `${label} missing · contact People Ops`
-    : value;
+  return value === null || value.trim() === '' ? `Missing ${label.toLowerCase()}` : value;
 }
 
 /**
@@ -186,7 +182,6 @@ export function Tree({
   roots,
   selectedId,
   matchedIds,
-  duplicateNameIds,
   hasMatchFilter,
   hasActiveViewFilter,
 }: TreeProps) {
@@ -197,9 +192,25 @@ export function Tree({
   const allNodes = useMemo(() => collectNodes(roots), [roots]);
   const allIds = useMemo(() => new Set(allNodes.map((node) => node.id)), [allNodes]);
   const matchSet = useMemo(() => new Set(matchedIds), [matchedIds]);
-  const duplicateNameSet = useMemo(() => new Set(duplicateNameIds), [duplicateNameIds]);
+  const selectedVisibleNode = useMemo(
+    () => allNodes.find((node) => node.id === selectedId) ?? null,
+    [allNodes, selectedId],
+  );
+  const selectedPathIds = useMemo(
+    () =>
+      new Set(
+        selectedVisibleNode === null
+          ? []
+          : [selectedVisibleNode.id, ...selectedVisibleNode.pathToRoot],
+      ),
+    [selectedVisibleNode],
+  );
+  const selectedDirectReportIds = useMemo(
+    () => new Set(selectedVisibleNode?.children.map((child) => child.id) ?? []),
+    [selectedVisibleNode],
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() =>
-    depthTwoExpansion(allNodes),
+    defaultExpansion(allNodes),
   );
   const [revealedLists, setRevealedLists] = useState<Set<string>>(() => new Set());
   const [activeId, setActiveId] = useState<string | null>(() => roots[0]?.id ?? null);
@@ -332,9 +343,9 @@ export function Tree({
     setActiveId(roots[0]?.id ?? null);
   }
 
-  /** Restore the exact depth-two first-paint state and sibling caps. */
-  function resetDepthTwo(): void {
-    setExpandedIds(depthTwoExpansion(allNodes));
+  /** Restore the exact root-open first-paint state and sibling caps. */
+  function restoreDefaultView(): void {
+    setExpandedIds(defaultExpansion(allNodes));
     setRevealedLists(new Set());
     setActiveId(roots[0]?.id ?? null);
   }
@@ -362,10 +373,8 @@ export function Tree({
     const remaining = nodes.length - visibleNodes.length;
     const parentDepth = parentId === null ? -1 : (nodes[0]?.depth ?? 1) - 1;
     const nested = parentId !== null;
-    const railClass =
-      parentKind === 'external' || parentKind === 'unresolved'
-        ? 'synthetic-edge'
-        : 'border-l-[var(--rule)] border-[var(--grid-line)]';
+    const syntheticBranch = parentKind === 'external' || parentKind === 'unresolved';
+    const selectedBranch = parentId !== null && selectedPathIds.has(parentId);
     const mayIndent = !nested || parentDepth < MAX_INDENT_DEPTH;
 
     return (
@@ -373,16 +382,17 @@ export function Tree({
         aria-label={nested ? undefined : 'Organizational reporting hierarchy'}
         className={
           nested
-            ? `${railClass}${mayIndent ? ' ml-[var(--space-5)] pl-[var(--space-4)]' : ''}`
+            ? `tree-child-group${syntheticBranch ? ' tree-child-group--synthetic' : ''}${selectedBranch ? ' tree-child-group--selected-branch' : ''}${mayIndent ? '' : ' tree-child-group--depth-capped'}`
             : 'm-0 list-none p-0'
         }
         ref={nested ? undefined : treeRef}
         role={nested ? 'group' : 'tree'}
       >
-        {visibleNodes.map((node) => {
+        {visibleNodes.map((node, nodeIndex) => {
           const expanded = node.children.length > 0 && expandedIds.has(node.id);
           const selected = node.id === selectedId;
-          const emphasized = selected || expanded;
+          const onSelectedPath = !selected && selectedPathIds.has(node.id);
+          const selectedDirectReport = selectedDirectReportIds.has(node.id);
           const matched = matchSet.has(node.id);
           const contextOnly = hasMatchFilter && !matched;
           const departed = node.person !== null && isDeparted(node.person);
@@ -398,13 +408,20 @@ export function Tree({
               : criticalValue(node.person.department.name, 'Department');
 
           return (
-            <li className="list-none" key={node.id} role="none">
+            <li
+              className={`tree-node-shell list-none${nodeIndex === visibleNodes.length - 1 ? ' tree-node-shell--last-visible' : ''}${onSelectedPath ? ' tree-node-shell--selected-path' : ''}${selectedDirectReport ? ' tree-node-shell--selected-report' : ''}`}
+              key={node.id}
+              role="none"
+            >
               <div
                 aria-expanded={node.children.length > 0 ? expanded : undefined}
                 aria-level={node.depth + 1}
                 aria-selected={selected}
-                className={`${emphasized ? 'selected-panel' : 'hairline-row flex items-center'} relative my-[var(--space-2)] focus-visible:z-10`}
+                className={`tree-item ${selected ? 'selected-panel' : 'hairline-row'}${expanded ? ' tree-item--expanded' : ''}${onSelectedPath ? ' tree-item--selected-path' : ''}${selectedDirectReport ? ' tree-item--selected-report' : ''}${nested ? ' tree-item--nested' : ''} relative my-[var(--space-2)]`}
                 data-tree-node-id={node.id}
+                onClick={() => {
+                  selectNode(node.id);
+                }}
                 onFocus={() => {
                   setActiveId(node.id);
                 }}
@@ -415,23 +432,21 @@ export function Tree({
                 tabIndex={rovingActiveId === node.id ? 0 : -1}
               >
                 <span
-                  className={
-                    emphasized
-                      ? 'absolute left-[var(--space-5)] top-[var(--space-5)] text-[var(--selected-ink)]'
-                      : 'mr-[var(--space-4)] shrink-0 text-[var(--accent)]'
-                  }
+                  className={`tree-node-marker shrink-0 ${selected ? 'text-[var(--selected-ink)]' : 'text-[var(--accent)]'}`}
                 >
                   <HierarchyMarker synthetic={node.kind !== 'person'} />
                 </span>
 
                 <div
-                  className={`${emphasized ? 'selected-panel__content flex-col gap-[var(--space-2)] pr-12' : `min-h-8 flex-1 flex-row items-center gap-[var(--space-1)]${node.children.length > 0 ? ' pr-12' : ''}`} flex min-w-0`}
+                  className={`tree-node-copy min-h-[var(--space-6)] flex min-w-0 flex-1 flex-row${node.children.length > 0 ? ' tree-node-copy--has-action' : ''}`}
                 >
                   <Link
-                    className={`section-title bidi-isolate text-current no-underline${emphasized ? ' w-fit max-w-full' : ' max-w-[36%] shrink-0'}`}
+                    className="section-title tree-node-name--collapsed bidi-isolate shrink-0 text-current no-underline"
                     href={personHref(node.id)}
-                    onClick={() => {
-                      setActiveId(node.id);
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      selectNode(node.id);
                     }}
                     tabIndex={-1}
                   >
@@ -439,26 +454,17 @@ export function Tree({
                   </Link>
 
                   <p
-                    className={`${emphasized ? 'expanded-copy text-[var(--selected-ink-secondary)]' : 'micro-copy min-w-0 text-[var(--ink-secondary)]'} bidi-isolate`}
+                    className={`micro-copy min-w-0 bidi-isolate ${selected ? 'text-[var(--selected-ink-secondary)]' : 'text-[var(--ink-secondary)]'}`}
                   >
                     {jobTitle}
                     {department === null ? '' : ` · ${department}`}
                   </p>
 
-                  <div
-                    className={`flex items-center gap-[var(--space-2)]${emphasized ? ' flex-wrap' : ' shrink-0'}`}
-                  >
+                  <div className="tree-node-badges flex items-center gap-[var(--space-2)]">
                     <span className="status-pill">
-                      {emphasized
-                        ? `${String(node.directReports)} direct `
-                        : `${String(node.directReports)} `}
+                      {String(node.directReports)} direct{' '}
                       {node.directReports === 1 ? 'report' : 'reports'}
                     </span>
-                    {duplicateNameSet.has(node.id) &&
-                    node.person?.shortId !== null &&
-                    node.person?.shortId !== undefined ? (
-                      <span className="micro-copy bidi-isolate">ID {node.person.shortId}</span>
-                    ) : null}
                     {departed ? <span className="status-pill">Departed</span> : null}
                     {matched ? <span className="status-pill">Match</span> : null}
                     {contextOnly ? <span className="status-pill">Context</span> : null}
@@ -474,17 +480,12 @@ export function Tree({
                 {node.children.length > 0 ? (
                   <button
                     aria-label={`${expanded ? 'Collapse' : 'Expand'} ${node.displayName}`}
-                    className={`icon-action absolute right-[var(--space-5)] top-[var(--space-5)]${emphasized ? ' icon-action--inverse' : ''}`}
+                    className={`tree-branch-action icon-action${selected ? ' icon-action--inverse' : ''}`}
                     onClick={(event: MouseEvent<HTMLButtonElement>) => {
                       event.stopPropagation();
                       toggleBranch(node.id);
                     }}
                     tabIndex={-1}
-                    style={{
-                      top: emphasized
-                        ? 'var(--space-5)'
-                        : 'calc((var(--row-height) - var(--status-pill-height)) / 2)',
-                    }}
                     type="button"
                   >
                     <BranchChevron expanded={expanded} />
@@ -516,10 +517,9 @@ export function Tree({
 
   return (
     <section
-      className="flex flex-col gap-[var(--space-4)]"
+      className="organization-tree flex w-full flex-col gap-[var(--space-4)]"
       aria-labelledby="organization-tree-title"
       style={{
-        width: '100%',
         padding: 'var(--space-4)',
         border: 'var(--rule) solid var(--divider)',
         borderRadius: 'var(--radius-panel)',
@@ -553,7 +553,7 @@ export function Tree({
           </button>
           <button
             className="outline-action"
-            onClick={resetDepthTwo}
+            onClick={restoreDefaultView}
             type="button"
           >
             Restore default view
@@ -561,10 +561,19 @@ export function Tree({
         </div>
       </div>
 
-      <div className="micro-copy flex flex-wrap gap-x-[var(--space-4)] gap-y-[var(--space-2)]" aria-label="Tree legend">
-        <span>Solid rail · Remote employment</span>
-        <span>Dashed rail · external or unresolved manager</span>
-        <span>Rose badge · status or data context</span>
+      <div className="tree-legend micro-copy" aria-label="Tree legend">
+        <span className="tree-legend-item">
+          <span aria-hidden="true" className="tree-legend-line" />
+          Solid rail · Remote reporting line
+        </span>
+        <span className="tree-legend-item">
+          <span aria-hidden="true" className="tree-legend-line tree-legend-line--dashed" />
+          Dashed rail · external or unresolved manager
+        </span>
+        <span className="tree-legend-item">
+          <span aria-hidden="true" className="tree-legend-highlight" />
+          Rose highlight · selected path and direct reports
+        </span>
       </div>
 
       {roots.length === 0 ? (
@@ -583,7 +592,7 @@ export function Tree({
           )}
         </div>
       ) : (
-        <div className="max-h-[70vh] overflow-auto" aria-label="Scrollable organization hierarchy">
+        <div className="tree-scroll-region" aria-label="Scrollable organization hierarchy">
           {renderGroup(roots, null, null)}
         </div>
       )}

@@ -10,45 +10,28 @@
  * The visual mapping extends design.md §9.1 with the reviewed header treatment:
  * a compact company mark and the identity copy sit on Remote's existing
  * selected-maroon surface, while capture information remains plain supporting
- * copy rather than a badge or diagnostics panel. When the generated edge-case
- * snapshot is selected, the exact disclosure from build.md §D.5 remains
- * textual and persistent so color is never its only signal.
+ * copy rather than a badge or diagnostics panel.
  *
- * @see planning/build.md §D.5 — source-specific disclosure and capture copy
  * @see planning/build.md F7 — absolute and relative capture age on every view
  * @see planning/build.md §H.3 — header content and the no-refresh decision
  * @see planning/design.md §9.1 — locked header typography and warning tokens
  */
-
-import type { Provenance } from '@/domain/types';
 
 /**
  * The complete data required to render the header.
  *
  * `locale` is resolved at the request boundary rather than read from a browser
  * global, keeping this component server-renderable and preventing a hydration
- * rewrite of the capture line. `source` comes from snapshot provenance, not
- * from the URL, so the disclosure describes the artifact actually rendered.
+ * rewrite of the capture line.
  */
 export type HeaderProps = {
   /** The selected snapshot's company name; rendered verbatim and bidi-isolated. */
   companyName: string;
   /** ISO-8601 capture timestamp carried by the selected snapshot. */
   capturedAt: string;
-  /** The selected artifact's authoritative source classification. */
-  source: Provenance['source'];
   /** BCP 47 locale resolved for this request, with `en` as the page fallback. */
   locale: string;
 };
-
-/**
- * The immutable fixture disclosure required by build.md §D.5.
- *
- * Keeping the sentence here, rather than accepting arbitrary copy as a prop,
- * prevents call sites from weakening the distinction between synthetic and
- * customer data.
- */
-const FIXTURE_DISCLOSURE = 'Demo data — synthetic fixture, not real company data';
 
 /**
  * Render the bounded gradient company mark from the approved header reference.
@@ -63,9 +46,7 @@ function CompanyMark() {
       aria-hidden="true"
       className="company-mark"
       focusable="false"
-      height="40"
       viewBox="0 0 48 48"
-      width="40"
     >
       <defs>
         <linearGradient
@@ -151,7 +132,7 @@ function formatRelativeCapture(captured: Date, now: Date, locale: string): strin
 }
 
 /**
- * Render the organization identity, capture age, and optional fixture warning.
+ * Render the organization identity and capture age.
  *
  * Invalid timestamps are handled as a named unavailable state instead of
  * leaking `Invalid Date` into the interface or throwing during server render.
@@ -162,7 +143,7 @@ function formatRelativeCapture(captured: Date, now: Date, locale: string): strin
  * @param props selected snapshot identity and request-local formatting context
  * @returns the editorial header required above the toolbar and tree
  */
-export function Header({ companyName, capturedAt, source, locale }: HeaderProps) {
+export function Header({ companyName, capturedAt, locale }: HeaderProps) {
   const captureInstant = new Date(capturedAt);
   const now = new Date();
   const resolvedLocale = supportedLocale(locale);
@@ -186,14 +167,6 @@ export function Header({ companyName, capturedAt, source, locale }: HeaderProps)
           </h1>
         </div>
       </div>
-      {source === 'synthetic_fixture' ? (
-        <p
-          className="brand-header__disclosure micro-copy border-l-[var(--rule)] border-[var(--warning-border)] bg-[var(--warning-surface)] px-[var(--space-3)] py-[var(--space-2)] text-[var(--warning-ink)]"
-          role="status"
-        >
-          {FIXTURE_DISCLOSURE}
-        </p>
-      ) : null}
       <p className="brand-header__capture micro-copy text-[var(--selected-ink-muted)]">
         {hasValidCapture ? (
           <>
