@@ -86,9 +86,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Claude Code writes machine-local tool permissions to this file; the rest of
-# `.claude/` is shared project configuration and stays tracked.
-.claude/settings.local.json
+# Claude Code project state is machine-local.
+/.claude/
 
 
 # ==============================================================================
